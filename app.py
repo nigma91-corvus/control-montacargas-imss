@@ -37,7 +37,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CONEXIÓN Y FUNCIONES SUPABASE
+# 2. CONEXIÓN Y FUNCIONES SUPABASE (ROBUSTAS)
 # ==========================================
 @st.cache_resource
 def init_supabase() -> Client:
@@ -48,15 +48,25 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 def get_padron_data():
-    """Carga todo el padrón desde Supabase"""
-    response = supabase.table("padron_montacargas").select("*").order("id_equipo").execute()
-    return pd.DataFrame(response.data)
+    """Carga todo el padrón desde Supabase y sanitiza valores nulos para evitar ocultar filas"""
+    try:
+        response = supabase.table("padron_montacargas").select("*").order("id_equipo").execute()
+        df = pd.DataFrame(response.data)
+        if not df.empty:
+            df = df.fillna("") # Sanitiza celdas vacías para que la búsqueda y tablas no fallen
+        return df
+    except Exception as e:
+        st.error(f"Error al cargar el padrón: {e}")
+        return pd.DataFrame()
 
 def get_mantenimientos_data():
     """Carga el historial completo de mantenimientos desde Supabase"""
     try:
         response = supabase.table("mantenimientos_montacargas").select("*").order("fecha_servicio", desc=True).execute()
-        return pd.DataFrame(response.data)
+        df = pd.DataFrame(response.data)
+        if not df.empty:
+            df = df.fillna("")
+        return df
     except:
         return pd.DataFrame()
 
@@ -65,12 +75,8 @@ st.markdown('<div class="main-header">🚜 Sistema de Control de Montacargas - I
 st.markdown('<div class="sub-header">Coordinación Técnica de Servicios Generales | División de Transportes y Operación</div>', unsafe_allow_html=True)
 
 # Cargar bases de datos
-try:
-    df = get_padron_data()
-    df_maint = get_mantenimientos_data()
-except Exception as e:
-    st.error(f"Error de conexión con Supabase: {e}")
-    st.stop()
+df = get_padron_data()
+df_maint = get_mantenimientos_data()
 
 if df.empty:
     st.warning("La base de datos está vacía o no se devolvieron registros.")
@@ -78,16 +84,16 @@ if df.empty:
 
 id_col = "id_equipo" if "id_equipo" in df.columns else df.columns[0]
 
-# Pestañas Principales
+# Pestañas Principales del Sistema
 tab_dashboard, tab_editar, tab_mantenimiento, tab_nueva_unidad = st.tabs([
-    "📊 Panel General & Filtros", 
+    "📊 Panel General & Buscador 360°", 
     "📝 Modificar Unidad", 
     "🛠️ Bitácora y Expediente de Mantenimiento",
     "➕ Alta de Nueva Unidad"
 ])
 
 # ==========================================
-# PESTAÑA 1: DASHBOARD Y CONSULTAS
+# PESTAÑA 1: DASHBOARD Y BUSCADOR UNIVERSAL
 # ==========================================
 with tab_dashboard:
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
@@ -96,7 +102,7 @@ with tab_dashboard:
     ooad_col = "ooad_estado" if "ooad_estado" in df.columns else df.columns[1]
     ooad_count = df[ooad_col].nunique() if ooad_col in df.columns else 0
     total_maint = len(df_maint) if not df_maint.empty else 0
-    costo_total_flota = df_maint["costo"].sum() if not df_maint.empty and "costo" in df_maint.columns else 0.0
+    costo_total_flota = pd.to_numeric(df_maint["costo"], errors='coerce').sum() if not df_maint.empty and "costo" in df_maint.columns else 0.0
     
     col_kpi1.metric("Total en Padrón", f"{total_equipos} unidades")
     col_kpi2.metric("OOAD / Sedes", f"{ooad_count} registradas")
@@ -105,37 +111,38 @@ with tab_dashboard:
 
     st.markdown("---")
     
-    st.subheader("🔍 Filtros Dinámicos de Búsqueda")
+    st.subheader("🔍 Buscador Universal y Filtros Cruzados")
     col_f1, col_f2, col_f3 = st.columns(3)
     
     with col_f1:
         if "ooad_estado" in df.columns:
-            lista_ooad = ["Todas"] + sorted([str(x) for x in df["ooad_estado"].dropna().unique() if x])
+            lista_ooad = ["Todas las OOAD"] + sorted([str(x) for x in df["ooad_estado"].unique() if str(x).strip()])
             sel_ooad = st.selectbox("Filtrar por OOAD / Estado:", lista_ooad)
         else:
-            sel_ooad = "Todas"
+            sel_ooad = "Todas las OOAD"
         
     with col_f2:
         if "etapa_contractual" in df.columns:
-            lista_etapas = ["Todas"] + sorted([str(x) for x in df["etapa_contractual"].dropna().unique() if x])
+            lista_etapas = ["Todas las Etapas"] + sorted([str(x) for x in df["etapa_contractual"].unique() if str(x).strip()])
             sel_etapa = st.selectbox("Filtrar por Etapa Contractual:", lista_etapas)
         else:
-            sel_etapa = "Todas"
+            sel_etapa = "Todas las Etapas"
         
     with col_f3:
-        search_query = st.text_input("Búsqueda global (ID, Serie, Sede, Factura):", "")
+        search_query = st.text_input("🔎 Búsqueda libre (Serie, Factura, Sede, ID, Batería):", "")
 
-    # Aplicar filtros
+    # Aplicar filtros con robustez ante datos faltantes
     df_filtered = df.copy()
-    if sel_ooad != "Todas" and "ooad_estado" in df.columns:
+    if sel_ooad != "Todas las OOAD" and "ooad_estado" in df.columns:
         df_filtered = df_filtered[df_filtered["ooad_estado"] == sel_ooad]
-    if sel_etapa != "Todas" and "etapa_contractual" in df.columns:
+    if sel_etapa != "Todas las Etapas" and "etapa_contractual" in df.columns:
         df_filtered = df_filtered[df_filtered["etapa_contractual"] == sel_etapa]
     if search_query:
+        # Búsqueda segura 360° sobre todas las columnas (incluso registros incompletos)
         mask = df_filtered.astype(str).apply(lambda row: row.str.contains(search_query, case=False, na=False).any(), axis=1)
         df_filtered = df_filtered[mask]
 
-    st.markdown(f"**Mostrando:** {len(df_filtered)} de {total_equipos} unidades.")
+    st.markdown(f"**Mostrando:** {len(df_filtered)} de {total_equipos} unidades totales en el padrón.")
     st.dataframe(df_filtered, use_container_width=True, hide_index=True)
     
     # Exportar a Excel
@@ -216,7 +223,7 @@ with tab_mantenimiento:
                     "Mantenimiento Preventivo", 
                     "Mantenimiento Correctivo", 
                     "Diagnóstico y Afinación", 
-                    "Revisión de Batería/Sistema Eléctrico", 
+                    "Revisión de Batería / Sistema Eléctrico", 
                     "Garantía"
                 ])
             with cm2:
@@ -248,9 +255,9 @@ with tab_mantenimiento:
                     st.error(f"Error al guardar el servicio: {ex}")
 
     with subtab_historial:
-        st.markdown("#### Consultar Historial Técnico por Equipo")
+        st.markdown("#### Consultar Expediente Técnico por Equipo")
         if not df_maint.empty:
-            sel_equipo_historial = st.selectbox("Selecciona la Unidad para ver su Expediente:", df[id_col].tolist(), key="hist_eq_sel")
+            sel_equipo_historial = st.selectbox("Selecciona la Unidad para ver su Historial:", df[id_col].tolist(), key="hist_eq_sel")
             df_equipo_maint = df_maint[df_maint["id_equipo"] == sel_equipo_historial]
             
             if not df_equipo_maint.empty:
