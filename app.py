@@ -53,7 +53,7 @@ def get_padron_data():
     return pd.DataFrame(response.data)
 
 def get_mantenimientos_data():
-    """Carga el historial de mantenimientos desde Supabase"""
+    """Carga el historial completo de mantenimientos desde Supabase"""
     try:
         response = supabase.table("mantenimientos_montacargas").select("*").order("fecha_servicio", desc=True).execute()
         return pd.DataFrame(response.data)
@@ -82,7 +82,7 @@ id_col = "id_equipo" if "id_equipo" in df.columns else df.columns[0]
 tab_dashboard, tab_editar, tab_mantenimiento, tab_nueva_unidad = st.tabs([
     "📊 Panel General & Filtros", 
     "📝 Modificar Unidad", 
-    "🛠️ Bitácora de Mantenimiento",
+    "🛠️ Bitácora y Expediente de Mantenimiento",
     "➕ Alta de Nueva Unidad"
 ])
 
@@ -96,11 +96,12 @@ with tab_dashboard:
     ooad_col = "ooad_estado" if "ooad_estado" in df.columns else df.columns[1]
     ooad_count = df[ooad_col].nunique() if ooad_col in df.columns else 0
     total_maint = len(df_maint) if not df_maint.empty else 0
+    costo_total_flota = df_maint["costo"].sum() if not df_maint.empty and "costo" in df_maint.columns else 0.0
     
     col_kpi1.metric("Total en Padrón", f"{total_equipos} unidades")
     col_kpi2.metric("OOAD / Sedes", f"{ooad_count} registradas")
     col_kpi3.metric("Servicios Registrados", f"{total_maint} bitácoras")
-    col_kpi4.metric("Estatus Sistema", "🟢 En línea")
+    col_kpi4.metric("Costo Mantenimientos", f"${costo_total_flota:,.2f} MXN")
 
     st.markdown("---")
     
@@ -199,50 +200,70 @@ with tab_editar:
                 st.error(f"Error al actualizar: {ex}")
 
 # ==========================================
-# PESTAÑA 3: BITÁCORA DE MANTENIMIENTO
+# PESTAÑA 3: BITÁCORA Y EXPEDIENTE DE MANTENIMIENTO
 # ==========================================
 with tab_mantenimiento:
-    st.subheader("🛠️ Bitácora de Servicio y Mantenimiento (Persistente)")
+    st.subheader("🛠️ Módulo Integral de Mantenimiento y Servicios")
     
-    with st.form("form_mantenimiento_real"):
-        cm1, cm2, cm3 = st.columns(3)
-        with cm1:
-            m_id = st.selectbox("Unidad Atendida:", df[id_col].tolist(), key="maint_id_select")
-            m_tipo = st.selectbox("Tipo de Trabajo:", ["Preventivo", "Correctivo", "Diagnóstico", "Garantía"])
-        with cm2:
-            m_fecha = st.date_input("Fecha de Realización:")
-            m_tecnico = st.text_input("Técnico / Proveedor Responsable:")
-        with cm3:
-            m_horometro = st.number_input("Horómetro (Horas de Uso):", min_value=0, value=0)
-            m_costo = st.number_input("Costo Estimado ($ MXN):", min_value=0.0, value=0.0)
+    subtab_nuevo, subtab_historial = st.tabs(["➕ Registrar Nuevo Servicio", "📖 Expediente Histórico por Unidad"])
+    
+    with subtab_nuevo:
+        with st.form("form_mantenimiento_real"):
+            cm1, cm2, cm3 = st.columns(3)
+            with cm1:
+                m_id = st.selectbox("Unidad Atendida:", df[id_col].tolist(), key="maint_id_select")
+                m_tipo = st.selectbox("Tipo de Servicio:", [
+                    "Mantenimiento Preventivo", 
+                    "Mantenimiento Correctivo", 
+                    "Diagnóstico y Afinación", 
+                    "Revisión de Batería/Sistema Eléctrico", 
+                    "Garantía"
+                ])
+            with cm2:
+                m_fecha = st.date_input("Fecha de Realización:")
+                m_tecnico = st.text_input("Técnico / Taller Proveedor Responsable:")
+            with cm3:
+                m_horometro = st.number_input("Horómetro Actual (Horas):", min_value=0, value=0)
+                m_costo = st.number_input("Costo Total ($ MXN):", min_value=0.0, value=0.0)
 
-        m_obs = st.text_area("Observaciones Técnicas y Refacciones Reemplazadas:")
-        
-        btn_save_maint = st.form_submit_button("📌 Registrar Servicio en Base de Datos")
-        
-        if btn_save_maint:
-            try:
-                maint_record = {
-                    "id_equipo": m_id,
-                    "tipo_servicio": m_tipo,
-                    "fecha_servicio": str(m_fecha),
-                    "horometro": m_horometro,
-                    "costo": m_costo,
-                    "tecnico": m_tecnico,
-                    "observaciones": m_obs
-                }
-                supabase.table("mantenimientos_montacargas").insert(maint_record).execute()
-                st.success(f"¡Mantenimiento guardado con éxito para la unidad {m_id}!")
-                st.cache_resource.clear()
-            except Exception as ex:
-                st.error(f"Error al guardar el servicio: {ex}")
+            m_obs = st.text_area("Observaciones Técnicas, Trabajos Realizados y Refacciones Reemplazadas:")
+            
+            btn_save_maint = st.form_submit_button("📌 Guardar Servicio en Base de Datos")
+            
+            if btn_save_maint:
+                try:
+                    maint_record = {
+                        "id_equipo": m_id,
+                        "tipo_servicio": m_tipo,
+                        "fecha_servicio": str(m_fecha),
+                        "horometro": m_horometro,
+                        "costo": m_costo,
+                        "tecnico": m_tecnico,
+                        "observaciones": m_obs
+                    }
+                    supabase.table("mantenimientos_montacargas").insert(maint_record).execute()
+                    st.success(f"¡Servicio registrado con éxito para la unidad {m_id}!")
+                    st.cache_resource.clear()
+                except Exception as ex:
+                    st.error(f"Error al guardar el servicio: {ex}")
 
-    st.markdown("---")
-    st.subheader("📋 Historial Reciente de Servicios Registrados")
-    if not df_maint.empty:
-        st.dataframe(df_maint, use_container_width=True, hide_index=True)
-    else:
-        st.info("Aún no hay servicios registrados en la base de datos.")
+    with subtab_historial:
+        st.markdown("#### Consultar Historial Técnico por Equipo")
+        if not df_maint.empty:
+            sel_equipo_historial = st.selectbox("Selecciona la Unidad para ver su Expediente:", df[id_col].tolist(), key="hist_eq_sel")
+            df_equipo_maint = df_maint[df_maint["id_equipo"] == sel_equipo_historial]
+            
+            if not df_equipo_maint.empty:
+                st.info(f"Se encontraron {len(df_equipo_maint)} registros de servicio para la unidad **{sel_equipo_historial}**.")
+                st.dataframe(df_equipo_maint, use_container_width=True, hide_index=True)
+            else:
+                st.warning(f"La unidad **{sel_equipo_historial}** no cuenta con servicios registrados en la bitácora todavía.")
+            
+            st.markdown("---")
+            st.subheader("📋 Bitácora General de Todos los Servicios")
+            st.dataframe(df_maint, use_container_width=True, hide_index=True)
+        else:
+            st.info("Aún no hay servicios registrados en la base de datos.")
 
 # ==========================================
 # PESTAÑA 4: ALTA DE NUEVA UNIDAD
