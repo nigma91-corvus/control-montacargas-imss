@@ -48,17 +48,26 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 def get_padron_data():
-    """Carga TODAS las columnas del padrón desde Supabase"""
+    """Carga todo el padrón desde Supabase"""
     response = supabase.table("padron_montacargas").select("*").order("id_equipo").execute()
     return pd.DataFrame(response.data)
+
+def get_mantenimientos_data():
+    """Carga el historial de mantenimientos desde Supabase"""
+    try:
+        response = supabase.table("mantenimientos_montacargas").select("*").order("fecha_servicio", desc=True).execute()
+        return pd.DataFrame(response.data)
+    except:
+        return pd.DataFrame()
 
 # Encabezado principal
 st.markdown('<div class="main-header">🚜 Sistema de Control de Montacargas - IMSS</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Coordinación Técnica de Servicios Generales | División de Transportes y Operación</div>', unsafe_allow_html=True)
 
-# Cargar base de datos
+# Cargar bases de datos
 try:
     df = get_padron_data()
+    df_maint = get_mantenimientos_data()
 except Exception as e:
     st.error(f"Error de conexión con Supabase: {e}")
     st.stop()
@@ -67,10 +76,12 @@ if df.empty:
     st.warning("La base de datos está vacía o no se devolvieron registros.")
     st.stop()
 
-# Navegación Principal por Pestañas
+id_col = "id_equipo" if "id_equipo" in df.columns else df.columns[0]
+
+# Pestañas Principales
 tab_dashboard, tab_editar, tab_mantenimiento, tab_nueva_unidad = st.tabs([
     "📊 Panel General & Filtros", 
-    "📝 Modificar Unidad Completa", 
+    "📝 Modificar Unidad", 
     "🛠️ Bitácora de Mantenimiento",
     "➕ Alta de Nueva Unidad"
 ])
@@ -84,11 +95,11 @@ with tab_dashboard:
     total_equipos = len(df)
     ooad_col = "ooad_estado" if "ooad_estado" in df.columns else df.columns[1]
     ooad_count = df[ooad_col].nunique() if ooad_col in df.columns else 0
-    total_columnas = len(df.columns)
+    total_maint = len(df_maint) if not df_maint.empty else 0
     
     col_kpi1.metric("Total en Padrón", f"{total_equipos} unidades")
     col_kpi2.metric("OOAD / Sedes", f"{ooad_count} registradas")
-    col_kpi3.metric("Campos / Columnas", f"{total_columnas} variables")
+    col_kpi3.metric("Servicios Registrados", f"{total_maint} bitácoras")
     col_kpi4.metric("Estatus Sistema", "🟢 En línea")
 
     st.markdown("---")
@@ -111,7 +122,7 @@ with tab_dashboard:
             sel_etapa = "Todas"
         
     with col_f3:
-        search_query = st.text_input("Búsqueda global (en cualquier variable/columna):", "")
+        search_query = st.text_input("Búsqueda global (ID, Serie, Sede, Factura):", "")
 
     # Aplicar filtros
     df_filtered = df.copy()
@@ -120,96 +131,118 @@ with tab_dashboard:
     if sel_etapa != "Todas" and "etapa_contractual" in df.columns:
         df_filtered = df_filtered[df_filtered["etapa_contractual"] == sel_etapa]
     if search_query:
-        # Búsqueda sobre TODAS las columnas del DataFrame
         mask = df_filtered.astype(str).apply(lambda row: row.str.contains(search_query, case=False, na=False).any(), axis=1)
         df_filtered = df_filtered[mask]
 
-    st.markdown(f"**Resultados encontrados:** {len(df_filtered)} de {total_equipos} unidades | **Mostrando las {len(df.columns)} columnas completas.**")
-    
-    # Muestra el DataFrame completo permitiendo hacer scroll horizontal y vertical
+    st.markdown(f"**Mostrando:** {len(df_filtered)} de {total_equipos} unidades.")
     st.dataframe(df_filtered, use_container_width=True, hide_index=True)
     
-    # Exportación a Excel
+    # Exportar a Excel
     output_excel = io.BytesIO()
     with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
         df_filtered.to_excel(writer, index=False, sheet_name='Padron_Montacargas')
+        if not df_maint.empty:
+            df_maint.to_excel(writer, index=False, sheet_name='Bitacora_Mantenimiento')
         
     st.download_button(
-        label="📥 Exportar Consulta a Excel (.xlsx)",
+        label="📥 Exportar Base Completa a Excel (.xlsx)",
         data=output_excel.getvalue(),
-        file_name=f"padron_imss_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+        file_name=f"control_montacargas_imss_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
 # ==========================================
-# PESTAÑA 2: EDITAR Y ACTUALIZAR UNIDAD (DINÁMICO)
+# PESTAÑA 2: MODIFICAR UNIDAD
 # ==========================================
 with tab_editar:
-    st.subheader("📝 Edición Integral de Registros")
+    st.subheader("📝 Edición Estructurada de Unidad")
     
-    col_sel, col_info = st.columns([2, 2])
-    with col_sel:
-        id_col = "id_equipo" if "id_equipo" in df.columns else df.columns[0]
-        id_list = df[id_col].tolist()
-        equipo_id = st.selectbox("Selecciona la Unidad a Modificar:", id_list, key="edit_select_dyn")
-        
+    equipo_id = st.selectbox("Selecciona la Unidad a Modificar:", df[id_col].tolist(), key="edit_select_struct")
     row = df[df[id_col] == equipo_id].iloc[0]
     
-    with st.form("form_edicion_dinamica"):
-        st.markdown(f"#### Editando todas las variables para el registro: **{equipo_id}**")
-        
-        # Generar inputs automáticamente para TODAS las columnas de la tabla
-        updated_data = {}
-        cols_list = list(df.columns)
-        
-        # Crear 3 columnas visuales para acomodar todos los campos de forma limpia
+    with st.form("form_edicion_estructurada"):
+        st.markdown(f"#### Editando equipo: **{equipo_id}**")
         c1, c2, c3 = st.columns(3)
-        cols_containers = [c1, c2, c3]
         
-        for idx, col_name in enumerate(cols_list):
-            if col_name == id_col:
-                continue # No permitimos cambiar la clave primaria
-                
-            val_actual = str(row[col_name]) if pd.notna(row[col_name]) else ""
-            container = cols_containers[idx % 3]
+        with c1:
+            val_ooad = st.text_input("OOAD / Estado:", value=str(row.get("ooad_estado", "")))
+            val_etapa = st.text_input("Etapa Contractual:", value=str(row.get("etapa_contractual", "")))
+            val_area = st.text_input("Área de Asignación:", value=str(row.get("area_asignacion", "")))
             
-            # Si el texto es largo (ej. direcciones), usa text_area, de lo contrario text_input
-            if len(val_actual) > 40 or "almacen" in col_name.lower() or "sede" in col_name.lower():
-                updated_data[col_name] = container.text_area(f"{col_name}:", value=val_actual, height=80)
-            else:
-                updated_data[col_name] = container.text_input(f"{col_name}:", value=val_actual)
-                
+        with c2:
+            val_sede = st.text_area("Almacén / Sede:", value=str(row.get("almacen_sede", "")), height=100)
+            val_factura = st.text_input("No. Factura:", value=str(row.get("no_factura", "")))
+            
+        with c3:
+            val_serie_m = st.text_input("Serie Montacargas:", value=str(row.get("serie_montacargas", "")))
+            val_serie_b = st.text_input("Serie Batería:", value=str(row.get("serie_bateria", "")))
+            val_serie_c = st.text_input("Serie Cargador:", value=str(row.get("serie_cargador", "")))
+            
         btn_actualizar = st.form_submit_button("💾 Guardar Cambios en Supabase")
         
         if btn_actualizar:
             try:
-                supabase.table("padron_montacargas").update(updated_data).eq(id_col, equipo_id).execute()
-                st.success(f"¡Unidad {equipo_id} actualizada con éxito en la base de datos!")
+                data_update = {
+                    "ooad_estado": val_ooad,
+                    "etapa_contractual": val_etapa,
+                    "area_asignacion": val_area,
+                    "almacen_sede": val_sede,
+                    "no_factura": val_factura,
+                    "serie_montacargas": val_serie_m,
+                    "serie_bateria": val_serie_b,
+                    "serie_cargador": val_serie_c
+                }
+                supabase.table("padron_montacargas").update(data_update).eq(id_col, equipo_id).execute()
+                st.success(f"¡Unidad {equipo_id} actualizada correctamente!")
                 st.cache_resource.clear()
             except Exception as ex:
-                st.error(f"Error al actualizar el registro: {ex}")
+                st.error(f"Error al actualizar: {ex}")
 
 # ==========================================
 # PESTAÑA 3: BITÁCORA DE MANTENIMIENTO
 # ==========================================
 with tab_mantenimiento:
-    st.subheader("🛠️ Bitácora de Servicio y Mantenimiento")
+    st.subheader("🛠️ Bitácora de Servicio y Mantenimiento (Persistente)")
     
-    col_m1, col_m2, col_m3 = st.columns(3)
-    with col_m1:
-        m_id = st.selectbox("Unidad Atendida:", df[id_col].tolist(), key="maint_id_select")
-        m_tipo = st.selectbox("Tipo de Trabajo:", ["Preventivo", "Correctivo", "Diagnóstico", "Garantía"])
-    with col_m2:
-        m_fecha = st.date_input("Fecha de Realización:")
-        m_tecnico = st.text_input("Técnico / Proveedor Responsable:")
-    with col_m3:
-        m_horometro = st.number_input("Horómetro (Horas de Uso):", min_value=0, value=0)
-        m_costo = st.number_input("Costo Estimado ($ MXN):", min_value=0.0, value=0.0)
+    with st.form("form_mantenimiento_real"):
+        cm1, cm2, cm3 = st.columns(3)
+        with cm1:
+            m_id = st.selectbox("Unidad Atendida:", df[id_col].tolist(), key="maint_id_select")
+            m_tipo = st.selectbox("Tipo de Trabajo:", ["Preventivo", "Correctivo", "Diagnóstico", "Garantía"])
+        with cm2:
+            m_fecha = st.date_input("Fecha de Realización:")
+            m_tecnico = st.text_input("Técnico / Proveedor Responsable:")
+        with cm3:
+            m_horometro = st.number_input("Horómetro (Horas de Uso):", min_value=0, value=0)
+            m_costo = st.number_input("Costo Estimado ($ MXN):", min_value=0.0, value=0.0)
 
-    m_obs = st.text_area("Observaciones Técnicas y Refacciones Reemplazadas:")
-    
-    if st.button("📌 Guardar Registro de Servicio"):
-        st.success(f"Servicio registrado con éxito para la unidad {m_id} ({m_tipo} - {m_fecha}).")
+        m_obs = st.text_area("Observaciones Técnicas y Refacciones Reemplazadas:")
+        
+        btn_save_maint = st.form_submit_button("📌 Registrar Servicio en Base de Datos")
+        
+        if btn_save_maint:
+            try:
+                maint_record = {
+                    "id_equipo": m_id,
+                    "tipo_servicio": m_tipo,
+                    "fecha_servicio": str(m_fecha),
+                    "horometro": m_horometro,
+                    "costo": m_costo,
+                    "tecnico": m_tecnico,
+                    "observaciones": m_obs
+                }
+                supabase.table("mantenimientos_montacargas").insert(maint_record).execute()
+                st.success(f"¡Mantenimiento guardado con éxito para la unidad {m_id}!")
+                st.cache_resource.clear()
+            except Exception as ex:
+                st.error(f"Error al guardar el servicio: {ex}")
+
+    st.markdown("---")
+    st.subheader("📋 Historial Reciente de Servicios Registrados")
+    if not df_maint.empty:
+        st.dataframe(df_maint, use_container_width=True, hide_index=True)
+    else:
+        st.info("Aún no hay servicios registrados en la base de datos.")
 
 # ==========================================
 # PESTAÑA 4: ALTA DE NUEVA UNIDAD
@@ -217,26 +250,39 @@ with tab_mantenimiento:
 with tab_nueva_unidad:
     st.subheader("➕ Registrar Nuevo Montacargas en Padrón")
     
-    with st.form("form_alta_dinamica"):
-        st.markdown("##### Ingrese los datos correspondientes para cada columna:")
-        new_record = {}
-        
-        c1_a, c2_a, c3_a = st.columns(3)
-        cols_a_containers = [c1_a, c2_a, c3_a]
-        
-        for idx, col_name in enumerate(df.columns):
-            container = cols_a_containers[idx % 3]
-            new_record[col_name] = container.text_input(f"{col_name}:", value="")
+    with st.form("form_alta_nueva"):
+        ca, cb = st.columns(2)
+        with ca:
+            n_id = st.text_input("ID Equipo (ejem: MTC-179):")
+            n_ooad = st.text_input("OOAD / Estado:")
+            n_sede = st.text_area("Almacén / Sede:")
+            n_etapa = st.text_input("Etapa Contractual:", value="Etapa 1 (2022)")
+        with cb:
+            n_serie_m = st.text_input("Serie Montacargas:")
+            n_serie_b = st.text_input("Serie Batería:")
+            n_serie_c = st.text_input("Serie Cargador:")
+            n_factura = st.text_input("No. Factura:")
             
         btn_crear = st.form_submit_button("🚀 Registrar Unidad en Supabase")
         
         if btn_crear:
-            if not new_record.get(id_col):
-                st.error(f"El campo '{id_col}' es obligatorio.")
+            if not n_id:
+                st.error("El ID del equipo es obligatorio.")
             else:
                 try:
+                    new_record = {
+                        "id_equipo": n_id,
+                        "ooad_estado": n_ooad,
+                        "almacen_sede": n_sede,
+                        "etapa_contractual": n_etapa,
+                        "serie_montacargas": n_serie_m,
+                        "serie_bateria": n_serie_b,
+                        "serie_cargador": n_serie_c,
+                        "no_factura": n_factura,
+                        "area_asignacion": "Por rastrear"
+                    }
                     supabase.table("padron_montacargas").insert(new_record).execute()
-                    st.success(f"¡Registro agregado con éxito al padrón!")
+                    st.success(f"¡Equipo {n_id} agregado con éxito al padrón!")
                     st.cache_resource.clear()
                 except Exception as ex:
                     st.error(f"Error al registrar la unidad: {ex}")
