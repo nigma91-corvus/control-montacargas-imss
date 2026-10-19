@@ -328,13 +328,17 @@ if menu == "📁 Ficha Digital por Equipo":
                     with tab_gen:
                         st.markdown("#### Detalle Contractual y Técnico")
                         
-                        # CONVERSIÓN A STRING PARA EVITAR ERROR ARROW EN COLUMNAS CON TIPOS MIXTOS (COMO altura_mastil_m)
-                        df_detalle = df_unidad.astype(str).T.reset_index()
-                        df_detalle.columns = ["Campo del Padrón", "Valor Registrado"]
+                        # CONSTRUCCIÓN SEGURA FILA POR FILA PARA EVITAR CONFLICTOS DE TIPOS ARROW
+                        data_detalle = []
+                        for col in df_padron.columns:
+                            val = unidad.get(col, "N/D")
+                            data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": str(val) if pd.notna(val) else "N/D"})
+                        
+                        df_detalle_safe = pd.DataFrame(data_detalle)
                         
                         st.dataframe(
-                            df_detalle,
-                            use_container_width=True,
+                            df_detalle_safe,
+                            width='stretch',
                             hide_index=True
                         )
                         
