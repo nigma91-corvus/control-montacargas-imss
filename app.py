@@ -268,7 +268,7 @@ if menu == "🔍 Buscador Universal & Tabla Maestro":
 # ==========================================
 # MÓDULO 3: FICHA DIGITAL POR EQUIPO (EXPEDIENTE 360°)
 # ==========================================
-if menu == "📁 Ficha Digital por Equipo":
+if menu == "🎆 Ficha Digital por Equipo":
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     st.markdown("Consulta integral del expediente, semáforo de completitud documental y repositorio por unidad.")
     
@@ -335,7 +335,6 @@ if menu == "📁 Ficha Digital por Equipo":
                             data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": val_str})
                         
                         df_detalle_safe = pd.DataFrame(data_detalle)
-                        # CONVERSIÓN TOTAL A TEXTO PARA ELIMINAR CUALQUIER CONFLICTO CON ARROW EN COLUMNAS MIXTAS
                         df_detalle_safe = df_detalle_safe.astype(str)
                         
                         st.dataframe(
