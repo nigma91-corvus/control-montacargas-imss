@@ -137,6 +137,8 @@ import altair as alt
 
 import altair as alt
 
+import altair as alt
+
 # ==========================================
 # MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
 # ==========================================
@@ -184,21 +186,22 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # GRÁFICA ALTAIR SIN PARÁMETROS INVÁLIDOS Y CON FONDO BLANCO
+    # GRÁFICA DE BARRAS HORIZONTALES EN FONDO BLANCO (Todos los nombres visibles)
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         
+        # Gráfica horizontal para que ningún nombre de estado se oculte
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
-            x=alt.X('OOAD_Estado:N', title='OOAD / Estado', sort='-y', 
-                    axis=alt.Axis(labelAngle=-45, labelColor='#1F2937')),
-            y=alt.Y('Total:Q', title='Número de Unidades', axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB')),
+            y=alt.Y('OOAD_Estado:N', title='OOAD / Estado', sort='-x', 
+                    axis=alt.Axis(labelColor='#1F2937')),
+            x=alt.X('Total:Q', title='Número de Unidades', axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB')),
             tooltip=['OOAD_Estado', 'Total']
         ).properties(
-            width=alt.Step(35),
-            height=380
+            width='container',
+            height=max(400, len(counts_ooad_full) * 22) # Altura dinámica según el número de estados
         ).configure_view(
             strokeWidth=0,
             fill='white'
