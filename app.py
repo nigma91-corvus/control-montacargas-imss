@@ -9,7 +9,7 @@ from datetime import datetime
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Control de Montacargas - IMSS",
-    page_icon="🚜",
+    page_icon=" ",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -130,3 +130,68 @@ menu = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
 st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
+# ==========================================
+# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
+# ==========================================
+if menu == "📊 Dashboard & Semáforo de Flota":
+    st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
+    
+    total_u = len(df_padron)
+    
+    # Conteo por estatus operativo alineado al nuevo enfoque
+    op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
+    garantia_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia", case=False, na=False)])
+    inconcluso_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
+    
+    # Ajuste por defecto si no existen diferencias de estatus aún
+    if op_count == 0 and garantia_count == 0 and inconcluso_count == 0:
+        op_count = total_u
+        
+    disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
+    
+    # Desglose por Etapas Contractuales
+    etapa1 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 1|1", case=False, na=False)])
+    etapa2 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 2|2", case=False, na=False)])
+    etapa3 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 3|3", case=False, na=False)])
+    etapa4 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 4|4", case=False, na=False)])
+
+    # Indicadores Métricos Superiores
+    c1, c2, c3, c4, c5 = st.columns(5)
+    
+    with c1:
+        st.metric("Total Flota", f"{total_u} U")
+        st.caption(f"E1: {etapa1} | E2: {etapa2} | E3: {etapa3} | E4: {etapa4}")
+        
+    c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
+    c3.metric("🟢 Operativos", f"{op_count} U")
+    c4.metric("🟡 Servicio Garantía Inconcluso", f"{garantia_count} U")
+    c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
+
+    st.markdown("---")
+    
+    # DISTRIBUCIÓN COMPLETA POR OOAD EN FONDO CLARO
+    st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
+    
+    if "ooad_estado" in df_padron.columns:
+        counts_ooad_full = df_padron["ooad_estado"].value_counts()
+        st.bar_chart(counts_ooad_full)
+        
+        with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
+            df_summary = pd.DataFrame({
+                "OOAD / Estado": counts_ooad_full.index,
+                "Total Montacargas": counts_ooad_full.values
+            })
+            st.dataframe(df_summary, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    
+    # SEGUIMIENTO DE SERVICIOS INCONCLUSOS Y GARANTÍAS
+    st.subheader("🔎 Control de Unidades con Servicios o Garantías Inconclusas")
+    
+    df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
+    
+    if not df_atencion.empty:
+        st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos.")
+        st.dataframe(df_atencion, use_container_width=True, hide_index=True)
+    else:
+        st.success("🟢 No hay registros con servicios o garantías pendientes. Flota al 100% de cumplimiento.")
