@@ -268,19 +268,17 @@ if menu == "🔍 Buscador Universal & Tabla Maestro":
 # ==========================================
 # MÓDULO 3: FICHA DIGITAL POR EQUIPO (EXPEDIENTE 360°)
 # ==========================================
-if menu == "🎆 Ficha Digital por Equipo":
+if "Ficha Digital" in str(menu):
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     st.markdown("Consulta integral del expediente, semáforo de completitud documental y repositorio por unidad.")
     
-    # Verificamos si existe alguna variable de padrón común
+    # Búsqueda segura del DataFrame cargado
     df_actual = None
-    if "df_padron" in locals() and not df_padron.empty:
-        df_actual = df_padron
-    elif "df" in locals() and not df.empty:
-        df_actual = df
-    elif "df_filtered" in locals() and not df_filtered.empty:
-        df_actual = df_filtered
-
+    for var_name in ["df_padron", "df", "df_filtered", "padron"]:
+        if var_name in locals() and isinstance(locals()[var_name], pd.DataFrame) and not locals()[var_name].empty:
+            df_actual = locals()[var_name]
+            break
+            
     if df_actual is not None:
         try:
             cols = df_actual.columns.tolist()
@@ -359,6 +357,6 @@ if menu == "🎆 Ficha Digital por Equipo":
                         st.markdown("#### Bitácora de Mantenimiento y Servicios")
                         st.info("🔧 Historial cronológico de mantenimientos preventivos, correctivos y seguimiento de garantías.")
         except Exception as e:
-                    st.error(f"⚠️ Error al renderizar la ficha: {e}")
+            st.error(f"⚠️ Error al renderizar la ficha: {e}")
     else:
-        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión. Asegúrate de que los datos se hayan cargado en el menú principal.")
+        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión. Asegúrate de que los datos se hayan cargado correctamente.")
