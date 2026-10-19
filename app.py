@@ -265,7 +265,7 @@ if menu == "🔍 Buscador Universal & Tabla Maestro":
     else:
         st.info("No se encontraron registros que coincidan con la búsqueda.")
 
-        # ==========================================
+# ==========================================
 # MÓDULO 3: FICHA DIGITAL POR EQUIPO (EXPEDIENTE 360°)
 # ==========================================
 if menu == "📁 Ficha Digital por Equipo":
