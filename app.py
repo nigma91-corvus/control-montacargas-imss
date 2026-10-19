@@ -5,7 +5,7 @@ import io
 from datetime import datetime
 
 # ==========================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS IMSS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CLAROS IMSS
 # ==========================================
 st.set_page_config(
     page_title="Sistema de Control de Montacargas - IMSS",
@@ -14,25 +14,55 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos institucionales inspirados en la paleta oficial (Verde IMSS, Guinda, Neutros)
+# Estilos institucionales limpios sobre fondo claro
 st.markdown("""
     <style>
-    /* Estilos generales de tipografía y contenedores */
+    /* Fondo general claro corporativo */
+    .stApp {
+        background-color: #F8F9FA;
+        color: #1F2937;
+    }
+    
+    /* Barra lateral institucional en Verde IMSS (#005A36) */
+    [data-testid="stSidebar"] {
+        background-color: #005A36;
+        color: #FFFFFF;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        color: #FFFFFF !important;
+        font-weight: 500;
+    }
+    [data-testid="stSidebar"] .stMarkdown {
+        color: #FFFFFF;
+    }
+
+    /* Encabezados principales */
     .main-title {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #FFFFFF;
+        color: #005A36;
         margin-bottom: 0px;
     }
     .sub-title {
-        font-size: 1rem;
-        color: #DDD0A4;
-        margin-bottom: 20px;
+        font-size: 1.05rem;
+        color: #4B5563;
+        margin-bottom: 25px;
     }
-    /* Estilo barra lateral institucional */
-    [data-testid="stSidebar"] {
-        background-color: #005A36;
-        color: white;
+
+    /* Tarjetas de métricas estilizadas claras */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    [data-testid="stMetric"] label {
+        color: #4B5563 !important;
+        font-weight: 600;
+    }
+    [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #005A36 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -49,7 +79,6 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 def load_padron():
-    """Carga el padrón maestro completo y sanitiza datos nulos"""
     try:
         response = supabase.table("padron_montacargas").select("*").order("id_equipo").execute()
         df = pd.DataFrame(response.data)
@@ -63,7 +92,6 @@ def load_padron():
         return pd.DataFrame()
 
 def load_mantenimientos():
-    """Carga la bitácora de mantenimientos histórica"""
     try:
         response = supabase.table("mantenimientos_montacargas").select("*").order("fecha_servicio", desc=True).execute()
         df = pd.DataFrame(response.data)
@@ -73,7 +101,7 @@ def load_mantenimientos():
     except:
         return pd.DataFrame()
 
-# Encabezado institucional
+# Encabezado institucional claro
 st.markdown('<div class="main-title">🚜 Sistema de Control de Montacargas</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">División de Transportes y Operación | Coordinación Técnica de Servicios Generales</div>', unsafe_allow_html=True)
 
@@ -87,7 +115,7 @@ if df_padron.empty:
 id_col = "id_equipo" if "id_equipo" in df_padron.columns else df_padron.columns[0]
 
 # ==========================================
-# 3. NAVEGACIÓN MODULAR (5 MÓDULOS EXACTOS)
+# 3. NAVEGACIÓN MODULAR (5 MÓDULOS)
 # ==========================================
 st.sidebar.markdown("### 📌 Módulos del Sistema")
 menu = st.sidebar.radio(
@@ -113,8 +141,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
     total_u = len(df_padron)
-    
-    # Conteo por estatus operativo
     op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
     taller_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Taller|Mantenimiento", case=False, na=False)])
     baja_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Fuera|Baja|Inoperativo", case=False, na=False)])
@@ -124,7 +150,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # Tarjetas Métricas Ejecutivas
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total Flota", f"{total_u} U")
     c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
@@ -134,9 +159,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # DISTRIBUCIÓN COMPLETA POR OOAD (100% DE REGISTROS)
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
-    
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts()
         st.bar_chart(counts_ooad_full)
@@ -149,8 +172,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    
-    # SEGUIMIENTO DE UNIDADES EN TALLER / INCIDENCIAS
     st.subheader("🔎 Seguimiento de Unidades en Taller o Incidencia")
     df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Taller|Fuera|Baja|Mantenimiento", case=False, na=False)]
     
@@ -188,7 +209,6 @@ elif menu == "🔍 Buscador Universal & Tabla Maestro":
     st.markdown(f"**Coincidencias encontradas:** {len(df_f)} de {len(df_padron)} equipos.")
     st.dataframe(df_f, use_container_width=True, hide_index=True)
     
-    # Exportación
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
         df_f.to_excel(writer, index=False, sheet_name='Padron_Filtrado')
