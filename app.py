@@ -141,7 +141,17 @@ import altair as alt
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
-    # Selector de Etapa para filtrar el dashboard dinámicamente
+    # Contenedor limpio para el selector de etapa
+    st.markdown("""
+        <style>
+        div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important;
+            color: #1F2937 !important;
+            border-color: #D1D5DB !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
         filtro_etapa_dash = st.selectbox(
@@ -152,7 +162,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     # Aplicar el filtro dinámico al DataFrame principal del dashboard
     df_dash = df_padron.copy()
     if filtro_etapa_dash != "Todas las Etapas":
-        # Extraemos el número o texto clave seleccionado (ej. "1" de "Etapa 1")
         num_etapa = filtro_etapa_dash.replace("Etapa ", "").strip()
         df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.contains(num_etapa, case=False, na=False)]
 
@@ -166,21 +175,12 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         op_count = total_u
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
-    
-    # Conteo general de referencia para las métricas rápidas
-    if "etapa_contractual" in df_padron.columns:
-        etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("1", case=False, na=False)])
-        etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("2", case=False, na=False)])
-        etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("3", case=False, na=False)])
-        etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("4", case=False, na=False)])
-    else:
-        etapa1, etapa2, etapa3, etapa4 = 56, 80, 42, 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
     
     with c1:
         st.metric("Flota en Vista", f"{total_u} U")
-        st.caption(f"E1: {etapa1} | E2: {etapa2} | E3: {etapa3} | E4: {etapa4}")
+        st.caption(f"Filtro activo: {filtro_etapa_dash}")
         
     c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
     c3.metric("🟢 Operativos", f"{op_count} U")
@@ -227,7 +227,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos en esta selección.")
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
-        st.success("🟢 No hay registros con servicios o garantías pendientes en esta vista.")
+        st.success("🟢 No hay registros con servicios ou garantías pendientes en esta vista.")
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
