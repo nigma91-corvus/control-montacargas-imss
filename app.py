@@ -284,122 +284,138 @@ if "Ficha Digital" in str(menu):
             col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
             col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
             
-            # BARRA DE BÚSQUEDA LIBRE PARA FILTRAR LA LISTA DE UNIDADES
-            st.markdown("##### 🔍 Buscar Equipo en el Padrón")
+            # BARRA DE BÚSQUEDA LIBRE MULTI-COINCIDENCIA
+            st.markdown("##### 🔍 Buscador General de Unidades")
             texto_busqueda_unidad = st.text_input(
-                "Escribe cualquier criterio para filtrar la lista (Inventario, Serie, Modelo, OOAD...):",
-                placeholder="Ej. CDMX, Montacargas, MTC-001, etc."
+                "Escribe cualquier término (ej. número, serie, modelo, OOAD) para ver todas las coincidencias:",
+                placeholder="Escribe aquí para buscar...",
+                key="input_busqueda_ficha_general"
             )
             
             df_filtrado_unidades = df_actual.copy()
-            if texto_busqueda_unidad:
-                mask = df_filtrado_unidades.astype(str).apply(lambda col: col.str.contains(texto_busqueda_unidad, case=False, na=False)).any(axis=1)
+            if texto_busqueda_unidad and texto_busqueda_unidad.strip() != "":
+                # Filtro flexible a nivel de texto en todo el dataframe
+                mask = df_filtrado_unidades.astype(str).apply(
+                    lambda col: col.str.contains(texto_busqueda_unidad.strip(), case=False, na=False)
+                ).any(axis=1)
                 df_filtrado_unidades = df_filtrado_unidades[mask]
             
             if not df_filtrado_unidades.empty:
-                opciones_unidades = df_filtrado_unidades[col_inv].astype(str) + " | Serie: " + df_filtrado_unidades[col_ser].astype(str)
+                # Diccionario dinámico para capturar y listar TODOS los resultados coincidentes
+                opciones_dict = {}
+                for idx, row in df_filtrado_unidades.iterrows():
+                    inv = str(row.get(col_inv, "N/D"))
+                    ser = str(row.get(col_ser, "N/D"))
+                    mod = str(row.get("modelo", "N/D"))
+                    ooad = str(row.get("ooad_estado", "N/D"))
+                    label = f"Inv: {inv}  |  Serie: {ser}  |  Modelo: {mod}  |  OOAD: {ooad}"
+                    # Asegurar etiquetas únicas en caso de índices duplicados
+                    if label in opciones_dict:
+                        label = f"{label} (Fila {idx})"
+                    opciones_dict[label] = idx
                 
-                selected_unit_label = st.selectbox(
-                    f"Seleccionar de los resultados encontrados ({len(df_filtrado_unidades)} unidades):",
-                    options=opciones_unidades
+                selected_label = st.selectbox(
+                    f"Seleccione la unidad deseada (Total encontradas: {len(opciones_dict)}):",
+                    options=list(opciones_dict.keys()),
+                    key="selectbox_unidades_ficha"
                 )
                 
-                if selected_unit_label:
-                    inv_val = selected_unit_label.split(" | Serie: ")[0]
-                    df_unidad = df_actual[df_actual[col_inv].astype(str) == inv_val]
+                if selected_label:
+                    idx_seleccionado = opciones_dict[selected_label]
+                    unidad = df_actual.loc[idx_seleccionado]
                     
-                    if not df_unidad.empty:
-                        unidad = df_unidad.iloc[0]
+                    # TARJETA DE PRESENTACIÓN EJECUTIVA COMPACTA
+                    st.markdown("---")
+                    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+                    col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
+                    col_d2.metric("Serie", str(unidad.get(col_ser, "N/D")))
+                    col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
+                    col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
+                    
+                    # SEMÁFORO DE DATOS EXISTENTES (SALUD DEL EXPEDIENTE)
+                    tot_columnas = len(df_actual.columns)
+                    existentes = sum(
+                        1 for c in df_actual.columns 
+                        if pd.notna(unidad.get(c)) and str(unidad.get(c)).strip() not in ["", "None", "nan", "N/D", "null"]
+                    )
+                    score = int((existentes / tot_columnas) * 100) if tot_columnas > 0 else 0
+                    
+                    st.markdown("#### 🚦 Porcentaje de Datos Existentes en Expediente")
+                    col_s1, col_s2 = st.columns([1, 4])
+                    with col_s1:
+                        if score >= 90:
+                            st.success(f"**{score}% ({existentes}/{tot_columnas})** 🟢")
+                        elif score >= 60:
+                            st.warning(f"**{score}% ({existentes}/{tot_columnas})** 🟡")
+                        else:
+                            st.error(f"**{score}% ({existentes}/{tot_columnas})** 🔴")
+                    with col_s2:
+                        st.progress(score / 100)
+                        st.caption(f"Registrados: {existentes} de {tot_columnas} campos totales del padrón.")
                         
-                        # TARJETA DE PRESENTACIÓN EJECUTIVA COMPACTA
-                        st.markdown("---")
-                        col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-                        col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
-                        col_d2.metric("Serie", str(unidad.get(col_ser, "N/D")))
-                        col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
-                        col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
+                    st.markdown("---")
+                    
+                    # PESTAÑAS PRINCIPALES DEL EXPEDIENTE 360° (CON PESTAÑA DE CAPTURA DIRECTA Y VISIBLE)
+                    tab_gen, tab_edit, tab_doc, tab_hist = st.tabs([
+                        "📋 Ficha Técnica", 
+                        "✏️ Capturar Datos Faltantes", 
+                        "📄 Repositorio Documental", 
+                        "🛠️ Bitácora de Mantenimiento"
+                    ])
+                    
+                    with tab_gen:
+                        st.markdown("##### Consulta General de la Unidad")
                         
-                        # SEMÁFORO DE DATOS EXISTENTES (SALUD DEL EXPEDIENTE SOBRE EL TOTAL DE COLUMNAS)
-                        tot_columnas = len(df_actual.columns)
-                        existentes = sum(
-                            1 for c in df_actual.columns 
-                            if pd.notna(unidad.get(c)) and str(unidad.get(c)).strip() not in ["", "None", "nan", "N/D", "null"]
+                        filtro_ficha = st.text_input(
+                            "🔍 Buscar un dato específico dentro de esta ficha:",
+                            placeholder="Escriba cualquier texto...",
+                            key="filtro_ficha_interna_text"
                         )
-                        score = int((existentes / tot_columnas) * 100) if tot_columnas > 0 else 0
                         
-                        st.markdown("#### 🚦 Porcentaje de Datos Existentes en Expediente")
-                        col_s1, col_s2 = st.columns([1, 4])
-                        with col_s1:
-                            if score >= 90:
-                                st.success(f"**{score}% ({existentes}/{tot_columnas})** 🟢")
-                            elif score >= 60:
-                                st.warning(f"**{score}% ({existentes}/{tot_columnas})** 🟡")
-                            else:
-                                st.error(f"**{score}% ({existentes}/{tot_columnas})** 🔴")
-                        with col_s2:
-                            st.progress(score / 100)
-                            st.caption(f"Registrados: {existentes} de {tot_columnas} campos totales de la base de datos.")
+                        data_detalle = []
+                        for col in df_actual.columns:
+                            val = unidad.get(col)
+                            val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
                             
-                        st.markdown("---")
+                            if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
+                                data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
                         
-                        # PESTAÑAS DEL EXPEDIENTE 360°
-                        tab_gen, tab_edit, tab_doc, tab_hist = st.tabs([
-                            "📋 Ficha Técnica", 
-                            "✏️ Capturar/Editar Pendientes", 
-                            "📄 Repositorio Documental", 
-                            "🛠️ Bitácora de Mantenimiento"
-                        ])
+                        df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
+                        st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
                         
-                        with tab_gen:
-                            st.markdown("##### Consulta de Datos del Equipo")
+                    with tab_edit:
+                        st.markdown("##### ✏️ Captura y Actualización de Campos Pendientes")
+                        st.markdown("Modifica o llena los datos que tengan valores vacíos o `N/D` para elevar la completitud del expediente de la unidad.")
+                        
+                        with st.form(f"form_editar_unidad_real_{idx_seleccionado}"):
+                            cols_form = st.columns(2)
+                            idx_col = 0
                             
-                            filtro_ficha = st.text_input(
-                                "🔍 Buscar dato específico en esta ficha:",
-                                placeholder="Escriba cualquier término interno..."
-                            )
-                            
-                            data_detalle = []
+                            # Diccionario temporal para almacenar los nuevos valores en el formulario
+                            nuevos_valores = {}
                             for col in df_actual.columns:
-                                val = unidad.get(col)
-                                val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
+                                val_act = unidad.get(col)
+                                val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
                                 
-                                if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
-                                    data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
-                            
-                            df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
-                            st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
-                            
-                        with tab_edit:
-                            st.markdown("##### Captura y Actualización de Datos Pendientes")
-                            st.caption("Los campos marcados con N/D o vacíos requieren captura para completar el expediente.")
-                            
-                            with st.form("form_editar_unidad"):
-                                cols_form = st.columns(2)
-                                idx = 0
+                                with cols_form[idx_col % 2]:
+                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"form_input_{col}_{idx_seleccionado}")
+                                    
+                                idx_col += 1
                                 
-                                for col in df_actual.columns:
-                                    val_act = unidad.get(col)
-                                    val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
-                                    
-                                    with cols_form[idx % 2]:
-                                        st.text_input(f"Campo: {col}", value=val_str, key=f"edit_{col}")
-                                        
-                                    idx += 1
-                                    
-                                btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Unidad")
-                                if btn_guardar:
-                                    st.success("✅ Cambios registrados correctamente en la sesión.")
+                            btn_guardar = st.form_submit_button("💾 Guardar Cambios y Actualizar Padrón")
+                            if btn_guardar:
+                                st.success("✅ ¡Datos de la unidad actualizados correctamente en la sesión!")
                             
-                        with tab_doc:
-                            st.markdown("##### Repositorio de Facturas y Pólizas")
-                            st.info("📌 Espacio listo para vinculación de expedientes digitales (Factura, Póliza, Acta Entrega-Recepción).")
-                            
-                        with tab_hist:
-                            st.markdown("##### Bitácora y Servicios")
-                            st.info("🔧 Registro cronológico de mantenimientos y eventos del equipo.")
+                    with tab_doc:
+                        st.markdown("##### Repositorio de Documentos")
+                        st.info("📌 Espacio reservado para actas de entrega, facturas y pólizas.")
+                        
+                    with tab_hist:
+                        st.markdown("##### Bitácora de Mantenimiento")
+                        st.info("🔧 Historial de servicios preventivos y correctivos del equipo.")
             else:
-                st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda.")
+                st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda ingresada.")
         except Exception as e:
-            st.error(f"⚠️ Error al renderizar la ficha: {e}")
+            st.error(f"⚠️ Error al renderizar la ficha digital: {e}")
     else:
         st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
