@@ -155,18 +155,17 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     with col_f1:
         filtro_etapa_dash = st.selectbox(
             "🎯 Filtrar Dashboard por Etapa:",
-            ["Todas las Etapas", "Etapa 1", "Etapa 2", "Etapa 3", "Etapa 4"]
+            ["Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)", "Etapa 4"]
         )
     
-    # FILTRADO ESTRICTO Y EXACTO (Evita falsos positivos con números sueltos o inventarios)
+    # FILTRADO EXACTO BASADO EN LOS NOMBRES REALES DE SUPABASE
     df_dash = df_padron.copy()
     if filtro_etapa_dash != "Todas las Etapas":
-        # Normalizamos la columna y el filtro a minúsculas sin espacios
-        s_etapa = df_dash["etapa_contractual"].astype(str).str.strip().str.lower()
-        num_etapa = filtro_etapa_dash.replace("Etapa ", "").strip()
-        
-        # Coincidencia exacta por texto completo o número exacto de celda
-        df_dash = df_dash[s_etapa.isin([filtro_etapa_dash.lower(), num_etapa, f"etapa {num_etapa}", f"etapa-{num_etapa}"])]
+        if filtro_etapa_dash == "Etapa 4":
+            # Como la etapa 4 no existe, filtramos por un valor imposible para que arroje 0 unidades limpiamente
+            df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.contains("NO_EXISTE", case=False, na=False)]
+        else:
+            df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == filtro_etapa_dash.lower()]
 
     total_u = len(df_dash)
     
@@ -183,7 +182,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     
     with c1:
         st.metric("Flota en Vista", f"{total_u} U")
-        st.caption(f"Filtro activo: {filtro_etapa_dash}")
+        st.caption(f"Filtro: {filtro_etapa_dash}")
         
     c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
     c3.metric("🟢 Operativos", f"{op_count} U")
