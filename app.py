@@ -235,9 +235,9 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.success("🟢 No hay registros con servicios o garantías pendientes en esta vista.")
 
 # ==========================================
-# MÓDULO 2: BÚSQUEDA UNIVERSAL DE EQUIPOS
+# MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
-if menu == "🔍 Búsqueda de Equipos":
+if menu == "🔍 Buscador Universal & Tabla Maestro":
     st.subheader("🔍 Búsqueda Universal en el Padrón de Flota")
     st.markdown("Consulta rápida por número de serie, inventario, OOAD, estado, modelo o estatus operativo.")
     
