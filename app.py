@@ -233,35 +233,34 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
         st.success("🟢 No hay registros con servicios o garantías pendientes en esta vista.")
+
 # ==========================================
-# MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
+# MÓDULO 2: BÚSQUEDA UNIVERSAL DE EQUIPOS
 # ==========================================
-elif menu == "🔍 Buscador Universal & Tabla Maestro":
-    st.subheader("🔍 Buscador Universal de Unidades")
-    st.caption("Localice equipos rápidamente por NNI, Número de Inventario, Serie o Etapa Contractual.")
+if menu == "🔍 Búsqueda de Equipos":
+    st.subheader("🔍 Búsqueda Universal en el Padrón de Flota")
+    st.markdown("Consulta rápida por número de serie, inventario, OOAD, estado, modelo o estatus operativo.")
     
-    col_s1, col_s2, col_s3 = st.columns(3)
+    # Única caja de búsqueda limpia y directa
+    texto_busqueda = st.text_input(
+        "Criterio de búsqueda:",
+        placeholder="Escribe aquí para buscar en toda la flota (ej. CDMX, Montacargas, Serie...)"
+    )
+
+    df_busqueda = df_padron.copy()
     
-    with col_s1:
-        search_nni = st.text_input("Buscar por NNI", placeholder="Ej. NNI-...")
-    with col_s2:
-        search_inv = st.text_input("Buscar por No. Inventario", placeholder="Ej. INV-...")
-    with col_s3:
-        search_stage = st.selectbox("Filtrar por Etapa Contractual", ["Todas", "Etapa 1", "Etapa 2", "Etapa 3", "Etapa 4"])
-        
-    df_filtered = df_padron.copy()
+    if texto_busqueda:
+        # Búsqueda insensible a mayúsculas en todas las columnas del padrón general
+        mask = df_busqueda.astype(str).apply(lambda col: col.str.contains(texto_busqueda, case=False, na=False)).any(axis=1)
+        df_busqueda = df_busqueda[mask]
     
-    if search_nni:
-        df_filtered = df_filtered[df_filtered["nni"].astype(str).str.contains(search_nni, case=False, na=False)]
-    if search_inv:
-        df_filtered = df_filtered[df_filtered["numero_inventario"].astype(str).str.contains(search_inv, case=False, na=False)]
-    if search_stage != "Todas":
-        df_filtered = df_filtered[df_filtered["etapa_contractual"].astype(str).str.contains(search_stage, case=False, na=False)]
-        
-    st.markdown("---")
-    st.subheader(f"📋 Padrón y Resultados ({len(df_filtered)} unidades encontradas)")
+    st.markdown(f"**Resultados encontrados:** {len(df_busqueda)} unidades")
     
-    if not df_filtered.empty:
-        st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+    if not df_busqueda.empty:
+        st.dataframe(
+            df_busqueda,
+            use_container_width=True,
+            hide_index=True
+        )
     else:
-        st.warning("⚠️ No se encontraron unidades con los criterios de búsqueda especificados. Verifique los datos o intente con otro parámetro.")
+        st.info("No se encontraron registros que coincidan con la búsqueda.")
