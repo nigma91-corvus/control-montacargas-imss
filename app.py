@@ -272,13 +272,22 @@ if menu == "🎆 Ficha Digital por Equipo":
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     st.markdown("Consulta integral del expediente, semáforo de completitud documental y repositorio por unidad.")
     
-    try:
-        if "df_padron" in locals() and not df_padron.empty:
-            cols = df_padron.columns.tolist()
+    # Verificamos si existe alguna variable de padrón común
+    df_actual = None
+    if "df_padron" in locals() and not df_padron.empty:
+        df_actual = df_padron
+    elif "df" in locals() and not df.empty:
+        df_actual = df
+    elif "df_filtered" in locals() and not df_filtered.empty:
+        df_actual = df_filtered
+
+    if df_actual is not None:
+        try:
+            cols = df_actual.columns.tolist()
             col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
             col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
             
-            opciones_unidades = df_padron[col_inv].astype(str) + " - Serie: " + df_padron[col_ser].astype(str)
+            opciones_unidades = df_actual[col_inv].astype(str) + " - Serie: " + df_actual[col_ser].astype(str)
             
             selected_unit_label = st.selectbox(
                 "Seleccione o busque el equipo por Inventario / Serie:",
@@ -287,7 +296,7 @@ if menu == "🎆 Ficha Digital por Equipo":
             
             if selected_unit_label:
                 inv_val = selected_unit_label.split(" - Serie: ")[0]
-                df_unidad = df_padron[df_padron[col_inv].astype(str) == inv_val]
+                df_unidad = df_actual[df_actual[col_inv].astype(str) == inv_val]
                 
                 if not df_unidad.empty:
                     unidad = df_unidad.iloc[0]
@@ -329,13 +338,12 @@ if menu == "🎆 Ficha Digital por Equipo":
                         st.markdown("#### Detalle Contractual y Técnico")
                         
                         data_detalle = []
-                        for col in df_padron.columns:
+                        for col in df_actual.columns:
                             val = unidad.get(col, "N/D")
                             val_str = "N/D" if pd.isna(val) else str(val)
                             data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": val_str})
                         
-                        df_detalle_safe = pd.DataFrame(data_detalle)
-                        df_detalle_safe = df_detalle_safe.astype(str)
+                        df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
                         
                         st.dataframe(
                             df_detalle_safe,
@@ -350,9 +358,7 @@ if menu == "🎆 Ficha Digital por Equipo":
                     with tab_hist:
                         st.markdown("#### Bitácora de Mantenimiento y Servicios")
                         st.info("🔧 Historial cronológico de mantenimientos preventivos, correctivos y seguimiento de garantías.")
-                else:
-                    st.info("No se encontró información para la unidad seleccionada.")
-        else:
-            st.warning("⚠️ El padrón de flota se encuentra vacío o no se ha cargado correctamente.")
-    except Exception as e:
-        st.error(f"⚠️ Ocurrió un detalle al cargar la ficha: {e}")
+        except Exception as e:
+                    st.error(f"⚠️ Error al renderizar la ficha: {e}")
+    else:
+        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión. Asegúrate de que los datos se hayan cargado en el menú principal.")
