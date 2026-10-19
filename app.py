@@ -150,10 +150,12 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    etapa1 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 1|1", case=False, na=False)])
-    etapa2 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 2|2", case=False, na=False)])
-    etapa3 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 3|3", case=False, na=False)])
-    etapa4 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 4|4", case=False, na=False)])
+    # CONTEO EXACTO DE ETAPAS (Ajusta el texto si en tu BD dice diferente, ej. "ETAPA 1", "Etapa I", etc.)
+    # Si la columna se llama exactamente 'etapa_contractual':
+    etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 1", "1", "primera etapa"])])
+    etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 2", "2", "segunda etapa"])])
+    etapa3 = len(df_padron[df_padron["etapa_contractual"].str.strip().str.lower().isin(["etapa 3", "3", "tercera etapa"])])
+    etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 4", "4", "cuarta etapa"])])
 
     c1, c2, c3, c4, c5 = st.columns(5)
     
@@ -168,18 +170,28 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
+    # DISTRIBUCIÓN POR OOAD / ESTADO (Con tabla limpia y barras institucionales en fondo blanco)
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
-        counts_ooad_full = df_padron["ooad_estado"].value_counts()
-        st.bar_chart(counts_ooad_full)
+        counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
+        counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         
-        with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            df_summary = pd.DataFrame({
-                "OOAD / Estado": counts_ooad_full.index,
-                "Total Montacargas": counts_ooad_full.values
-            })
-            st.dataframe(df_summary, use_container_width=True, hide_index=True)
+        # Mostramos una tabla estilizada institucional limpia en lugar de la gráfica nativa que sale en negro
+        st.dataframe(
+            counts_ooad_full,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "OOAD_Estado": st.column_config.TextColumn("OOAD / Estado / Delegación", width="medium"),
+                "Total": st.column_config.ProgressColumn(
+                    "Total de Unidades",
+                    format="%d U",
+                    min_value=0,
+                    max_value=int(counts_ooad_full["Total"].max()) if not counts_ooad_full.empty else 100,
+                )
+            }
+        )
 
     st.markdown("---")
     
