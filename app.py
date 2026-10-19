@@ -272,79 +272,82 @@ if menu == "📁 Ficha Digital por Equipo":
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     st.markdown("Consulta integral del expediente, semáforo de completitud documental y repositorio por unidad.")
     
-    if "df_padron" in locals() and not df_padron.empty:
-        # Selector de unidad inteligente por Inventario y Serie
-        if "numero_inventario" in df_padron.columns and "numero_serie" in df_padron.columns:
-            opciones_unidades = df_padron["numero_inventario"].astype(str) + " - Serie: " + df_padron["numero_serie"].astype(str)
-        elif "numero_serie" in df_padron.columns:
-            opciones_unidades = df_padron["numero_serie"].astype(str)
-        else:
-            opciones_unidades = df_padron.index.astype(str)
-        
-        selected_unit_label = st.selectbox(
-            "Seleccione o busque el equipo por Inventario / Serie:",
-            options=opciones_unidades
-        )
-        
-        if selected_unit_label:
-            # Filtrar el registro exacto de la unidad seleccionada
-            if "numero_inventario" in df_padron.columns and "numero_serie" in df_padron.columns:
-                inv_val = selected_unit_label.split(" - Serie: ")[0]
-                df_unidad = df_padron[df_padron["numero_inventario"].astype(str) == inv_val]
-            else:
-                df_unidad = df_padron[df_padron.index.astype(str) == selected_unit_label]
+    try:
+        if "df_padron" in locals() and not df_padron.empty:
+            cols = df_padron.columns.tolist()
+            col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
+            col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
             
-            if not df_unidad.empty:
-                unidad = df_unidad.iloc[0]
+            opciones_unidades = df_padron[col_inv].astype(str) + " - Serie: " + df_padron[col_ser].astype(str)
+            
+            selected_unit_label = st.selectbox(
+                "Seleccione o busque el equipo por Inventario / Serie:",
+                options=opciones_unidades
+            )
+            
+            if selected_unit_label:
+                inv_val = selected_unit_label.split(" - Serie: ")[0]
+                df_unidad = df_padron[df_padron[col_inv].astype(str) == inv_val]
                 
-                st.markdown("---")
-                
-                # TARJETA DE PRESENTACIÓN EJECUTIVA
-                st.markdown("### 🏷️ Identificación del Equipo")
-                col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-                col_d1.metric("Inventario", str(unidad.get("numero_inventario", "N/D")))
-                col_d2.metric("No. de Serie", str(unidad.get("numero_serie", "N/D")))
-                col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
-                col_d4.metric("Estatus Operativo", str(unidad.get("estatus_operativo", "N/D")))
-                
-                # SEMÁFORO DE COMPLETITUD DE DATOS (DATA HEALTH SCORE)
-                campos_a_evaluar = ["numero_inventario", "numero_serie", "modelo", "ooad_estado", "estatus_operativo", "etapa_contractual"]
-                completados = sum(1 for c in campos_a_evaluar if c in unidad and pd.notna(unidad[c]) and str(unidad[c]).strip() != "")
-                score = int((completados / len(campos_a_evaluar)) * 100)
-                
-                st.markdown("### 🚦 Semáforo de Completitud del Expediente")
-                col_s1, col_s2 = st.columns([1, 4])
-                with col_s1:
-                    if score == 100:
-                        st.success(f"**{score}% Completo** 🟢")
-                    elif score >= 70:
-                        st.warning(f"**{score}% Completo** 🟡")
-                    else:
-                        st.error(f"**{score}% Completo** 🔴")
-                with col_s2:
-                    st.progress(score / 100)
-                    st.caption("Porcentaje de campos críticos capturados en el padrón para esta unidad.")
+                if not df_unidad.empty:
+                    unidad = df_unidad.iloc[0]
                     
-                st.markdown("---")
-                
-                # PESTAÑAS DEL EXPEDIENTE 360°
-                tab_gen, tab_doc, tab_hist = st.tabs(["📋 Ficha Técnica", "📄 Repositorio Documental", "🛠️ Historial y Bitácora"])
-                
-                with tab_gen:
-                    st.markdown("#### Detalle Contractual y Técnico")
-                    # Convertimos la fila en formato clave-valor para lectura vertical limpia
-                    df_detalle = df_unidad.T.reset_index()
-                    df_detalle.columns = ["Campo del Padrón", "Valor Registrado"]
-                    st.dataframe(df_detalle, use_container_width=True, hide_index=True)
+                    st.markdown("---")
                     
-                with tab_doc:
-                    st.markdown("#### Repositorio de Facturas y Pólizas")
-                    st.info("📌 Espacio preparado para la gestión y visualización de archivos PDF (Factura, Acta de Entrega y Póliza de Garantía).")
+                    # TARJETA DE PRESENTACIÓN EJECUTIVA
+                    st.markdown("### 🏷️ Identificación del Equipo")
+                    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+                    col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
+                    col_d2.metric("No. de Serie", str(unidad.get(col_ser, "N/D")))
+                    col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
+                    col_d4.metric("Estatus Operativo", str(unidad.get("estatus_operativo", "N/D")))
                     
-                with tab_hist:
-                    st.markdown("#### Bitácora de Mantenimiento y Servicios")
-                    st.info("🔧 Historial cronológico de mantenimientos preventivos, correctivos y seguimiento de garantías.")
-            else:
-                st.info("No se encontró información para la unidad seleccionada.")
-    else:
-        st.warning("⚠️ El padrón de flota se encuentra vacío o no se ha cargado correctamente.")
+                    # SEMÁFORO DE COMPLETITUD DE DATOS
+                    campos_a_evaluar = [col_inv, col_ser, "modelo", "ooad_estado", "estatus_operativo", "etapa_contractual"]
+                    completados = sum(1 for c in campos_a_evaluar if c in unidad and pd.notna(unidad[c]) and str(unidad[c]).strip() != "")
+                    score = int((completados / len(campos_a_evaluar)) * 100)
+                    
+                    st.markdown("### 🚦 Semáforo de Completitud del Expediente")
+                    col_s1, col_s2 = st.columns([1, 4])
+                    with col_s1:
+                        if score == 100:
+                            st.success(f"**{score}% Completo** 🟢")
+                        elif score >= 70:
+                            st.warning(f"**{score}% Completo** 🟡")
+                        else:
+                            st.error(f"**{score}% Completo** 🔴")
+                    with col_s2:
+                        st.progress(score / 100)
+                        st.caption("Porcentaje de campos críticos capturados en el padrón para esta unidad.")
+                        
+                    st.markdown("---")
+                    
+                    # PESTAÑAS DEL EXPEDIENTE 360°
+                    tab_gen, tab_doc, tab_hist = st.tabs(["📋 Ficha Técnica", "📄 Repositorio Documental", "🛠️ Historial y Bitácora"])
+                    
+                    with tab_gen:
+                        st.markdown("#### Detalle Contractual y Técnico")
+                        
+                        # CONVERSIÓN A STRING PARA EVITAR ERROR ARROW EN COLUMNAS CON TIPOS MIXTOS (COMO altura_mastil_m)
+                        df_detalle = df_unidad.astype(str).T.reset_index()
+                        df_detalle.columns = ["Campo del Padrón", "Valor Registrado"]
+                        
+                        st.dataframe(
+                            df_detalle,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                        
+                    with tab_doc:
+                        st.markdown("#### Repositorio de Facturas y Pólizas")
+                        st.info("📌 Espacio preparado para la gestión y visualización de archivos PDF (Factura, Acta de Entrega y Póliza de Garantía).")
+                        
+                    with tab_hist:
+                        st.markdown("#### Bitácora de Mantenimiento y Servicios")
+                        st.info("🔧 Historial cronológico de mantenimientos preventivos, correctivos y seguimiento de garantías.")
+                else:
+                    st.info("No se encontró información para la unidad seleccionada.")
+        else:
+            st.warning("⚠️ El padrón de flota se encuentra vacío o no se ha cargado correctamente.")
+    except Exception as e:
+        st.error(f"⚠️ Ocurrió un detalle al cargar la ficha: {e}")
