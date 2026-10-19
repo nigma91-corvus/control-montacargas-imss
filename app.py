@@ -5,39 +5,40 @@ import io
 from datetime import datetime
 
 # ==========================================
-# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS IMSS
 # ==========================================
 st.set_page_config(
-    page_title="Control de Montacargas - IMSS CMMS",
+    page_title="Sistema de Control de Montacargas - IMSS",
     page_icon="🚜",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Estilos institucionales inspirados en la paleta oficial (Verde IMSS, Guinda, Neutros)
 st.markdown("""
     <style>
+    /* Estilos generales de tipografía y contenedores */
     .main-title {
-        font-size: 2.3rem;
+        font-size: 2.2rem;
         font-weight: 800;
         color: #FFFFFF;
         margin-bottom: 0px;
     }
     .sub-title {
-        font-size: 1.05rem;
-        color: #38BDF8;
-        margin-bottom: 25px;
+        font-size: 1rem;
+        color: #DDD0A4;
+        margin-bottom: 20px;
     }
-    .status-card {
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: bold;
+    /* Estilo barra lateral institucional */
+    [data-testid="stSidebar"] {
+        background-color: #005A36;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CONEXIÓN Y CARGA ROBUSTA DE DATOS
+# 2. CONEXIÓN Y CARGA DE DATOS SUPABASE
 # ==========================================
 @st.cache_resource
 def init_supabase() -> Client:
@@ -48,7 +49,7 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 def load_padron():
-    """Carga el padrón maestro completo y sanitiza datos"""
+    """Carga el padrón maestro completo y sanitiza datos nulos"""
     try:
         response = supabase.table("padron_montacargas").select("*").order("id_equipo").execute()
         df = pd.DataFrame(response.data)
@@ -58,7 +59,7 @@ def load_padron():
                 df["estatus_operativo"] = "Operativo"
         return df
     except Exception as e:
-        st.error(f"Error al cargar padrón desde Supabase: {e}")
+        st.error(f"Error al conectar con Supabase: {e}")
         return pd.DataFrame()
 
 def load_mantenimientos():
@@ -72,34 +73,38 @@ def load_mantenimientos():
     except:
         return pd.DataFrame()
 
-# Encabezado Principal
-st.markdown('<div class="main-title">🚜 Plataforma de Control de Montacargas IMSS</div>', unsafe_allow_html=True)
+# Encabezado institucional
+st.markdown('<div class="main-title">🚜 Sistema de Control de Montacargas</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">División de Transportes y Operación | Coordinación Técnica de Servicios Generales</div>', unsafe_allow_html=True)
 
 df_padron = load_padron()
 df_maint = load_mantenimientos()
 
 if df_padron.empty:
-    st.warning("No se pudo conectar a la base de datos o el padrón está vacío.")
+    st.warning("La base de datos se encuentra vacía o hay un problema de conexión con Supabase.")
     st.stop()
 
 id_col = "id_equipo" if "id_equipo" in df_padron.columns else df_padron.columns[0]
 
-# NAVEGACIÓN MODULAR
+# ==========================================
+# 3. NAVEGACIÓN MODULAR (5 MÓDULOS EXACTOS)
+# ==========================================
+st.sidebar.markdown("### 📌 Módulos del Sistema")
 menu = st.sidebar.radio(
-    "📌 Módulos del Sistema",
+    "Selecciona una opción:",
     [
         "📊 Dashboard & Semáforo de Flota",
         "🔍 Buscador Universal & Tabla Maestro",
-        "FC Ficha Digital por Equipo",
+        "🎇 Ficha Digital por Equipo",
         "🛠️ Gestión de Mantenimiento (CMMS)",
         "📝 Editar / Registrar Unidad"
-    ]
+    ],
+    label_visibility="collapsed"
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("🌐 **Servidor:** Supabase Cloud Live")
-st.sidebar.caption(f"📦 **Total Equipos:** {len(df_padron)}")
+st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
+st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 
 # ==========================================
 # MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
@@ -114,52 +119,46 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     taller_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Taller|Mantenimiento", case=False, na=False)])
     baja_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Fuera|Baja|Inoperativo", case=False, na=False)])
     
-    # Ajuste si no hay estados diferenciados asignados aún
     if op_count == 0 and taller_count == 0 and baja_count == 0:
         op_count = total_u
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # Tarjetas de Semáforo
-    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-    
-    sc1.metric("Total Flota", f"{total_u} U")
-    sc2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
-    sc3.metric("🟢 Operativos", f"{op_count} U")
-    sc4.metric("🟡 En Taller / Maint.", f"{taller_count} U")
-    sc5.metric("🔴 Fuera de Servicio", f"{baja_count} U")
+    # Tarjetas Métricas Ejecutivas
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total Flota", f"{total_u} U")
+    c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
+    c3.metric("🟢 Operativos", f"{op_count} U")
+    c4.metric("🟡 En Taller", f"{taller_count} U")
+    c5.metric("🔴 Fuera de Servicio", f"{baja_count} U")
 
     st.markdown("---")
     
-    # DISTRIBUCIÓN COMPLETA POR OOAD (TODOS LOS ESTADOS)
+    # DISTRIBUCIÓN COMPLETA POR OOAD (100% DE REGISTROS)
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts()
-        
-        # Muestra la gráfica completa con todos los estados
         st.bar_chart(counts_ooad_full)
         
-        # Desglose en tabla interactiva expandible
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            df_ooad_summary = pd.DataFrame({
+            df_summary = pd.DataFrame({
                 "OOAD / Estado": counts_ooad_full.index,
                 "Total Montacargas": counts_ooad_full.values
             })
-            st.dataframe(df_ooad_summary, use_container_width=True, hide_index=True)
+            st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     
-    # SEGUIMIENTO DE UNIDADES EN TALLER / REVISIÓN
-    st.subheader("🔎 Seguimiento de Unidades que Requieren Atención")
-    
+    # SEGUIMIENTO DE UNIDADES EN TALLER / INCIDENCIAS
+    st.subheader("🔎 Seguimiento de Unidades en Taller o Incidencia")
     df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Taller|Fuera|Baja|Mantenimiento", case=False, na=False)]
     
     if not df_atencion.empty:
-        st.warning(f"Hay {len(df_atencion)} unidades marcadas que requieren seguimiento o están en taller.")
+        st.warning(f"Hay {len(df_atencion)} unidades marcadas que requieren seguimiento.")
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
-        st.success("🟢 Toda la flota se encuentra registrada como Operativa. No hay incidencias marcadas actualmente.")
+        st.success("🟢 Toda la flota se encuentra en estatus Operativo sin incidencias registradas.")
 
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
@@ -168,19 +167,15 @@ elif menu == "🔍 Buscador Universal & Tabla Maestro":
     st.subheader("🔎 Buscador Multicriterio de Equipos")
     
     f1, f2, f3 = st.columns(3)
-    
     with f1:
         ooads = ["Todas"] + sorted([str(x) for x in df_padron["ooad_estado"].unique() if str(x).strip()])
         sel_ooad = st.selectbox("Filtrar por OOAD / Estado:", ooads)
-        
     with f2:
         etapas = ["Todas"] + sorted([str(x) for x in df_padron["etapa_contractual"].unique() if str(x).strip()])
         sel_etapa = st.selectbox("Filtrar por Etapa Contractual:", etapas)
-        
     with f3:
-        search_query = st.text_input("🔎 Búsqueda Global (Serie Chasis, Batería, Cargador, Sede, Factura):", "")
+        search_query = st.text_input("🔎 Búsqueda Global (Serie Chasis, Batería, Sede, Factura):", "")
 
-    # Filtrado Robusto
     df_f = df_padron.copy()
     if sel_ooad != "Todas" and "ooad_estado" in df_f.columns:
         df_f = df_f[df_f["ooad_estado"] == sel_ooad]
@@ -193,11 +188,10 @@ elif menu == "🔍 Buscador Universal & Tabla Maestro":
     st.markdown(f"**Coincidencias encontradas:** {len(df_f)} de {len(df_padron)} equipos.")
     st.dataframe(df_f, use_container_width=True, hide_index=True)
     
-    # Exportar Consulta
+    # Exportación
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df_f.to_excel(writer, index=False, sheet_name='Consulta_Padrón')
-        
+        df_f.to_excel(writer, index=False, sheet_name='Padron_Filtrado')
     st.download_button(
         "📥 Descargar Consulta en Excel (.xlsx)",
         data=buffer.getvalue(),
@@ -206,30 +200,27 @@ elif menu == "🔍 Buscador Universal & Tabla Maestro":
     )
 
 # ==========================================
-# MÓDULO 3: FICHA DIGITAL POR EQUIPO (KARDEX)
+# MÓDULO 3: FICHA DIGITAL POR EQUIPO
 # ==========================================
-elif menu == "FC Ficha Digital por Equipo":
-    st.subheader("FC Expediente Técnico Individual")
+elif menu == "🎇 Ficha Digital por Equipo":
+    st.subheader("🎇 Expediente Técnico Individual por Unidad")
     
-    selected_unit = st.selectbox("Selecciona la Unidad para Consultar Expediente:", df_padron[id_col].tolist())
+    selected_unit = st.selectbox("Selecciona la Unidad para Consultar:", df_padron[id_col].tolist())
     unit_data = df_padron[df_padron[id_col] == selected_unit].iloc[0]
     
     st.markdown(f"### 🚜 Ficha Técnica: **{selected_unit}**")
     
     fc1, fc2, fc3 = st.columns(3)
-    
     with fc1:
         st.info("📍 **Ubicación Operativa**")
         st.write(f"**OOAD / Estado:** {unit_data.get('ooad_estado', 'N/A')}")
         st.write(f"**Almacén / Sede:** {unit_data.get('almacen_sede', 'N/A')}")
         st.write(f"**Área de Asignación:** {unit_data.get('area_asignacion', 'N/A')}")
-        
     with fc2:
         st.success("⚙️ **Números de Serie y Componentes**")
         st.write(f"**Serie Montacargas (Chasis):** {unit_data.get('serie_montacargas', 'N/A')}")
         st.write(f"**Serie Batería:** {unit_data.get('serie_bateria', 'N/A')}")
         st.write(f"**Serie Cargador:** {unit_data.get('serie_cargador', 'N/A')}")
-        
     with fc3:
         st.warning("📄 **Datos Contractuales y Estatus**")
         st.write(f"**Etapa Contractual:** {unit_data.get('etapa_contractual', 'N/A')}")
@@ -237,16 +228,15 @@ elif menu == "FC Ficha Digital por Equipo":
         st.write(f"**Estatus Operativo:** {unit_data.get('estatus_operativo', 'Operativo')}")
 
     st.markdown("---")
-    st.markdown(f"#### 📜 Historial de Servicios Registrados para **{selected_unit}**")
-    
+    st.markdown(f"#### 📜 Historial de Servicios para **{selected_unit}**")
     if not df_maint.empty and "id_equipo" in df_maint.columns:
         unit_maint = df_maint[df_maint["id_equipo"] == selected_unit]
         if not unit_maint.empty:
             st.dataframe(unit_maint, use_container_width=True, hide_index=True)
         else:
-            st.info("Este equipo no tiene eventos registrados en la bitácora de mantenimiento.")
+            st.info("Este equipo no cuenta con servicios registrados en la bitácora.")
     else:
-        st.info("Aún no existen mantenimientos registrados en el sistema.")
+        st.info("Aún no hay mantenimientos registrados en el sistema.")
 
 # ==========================================
 # MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS)
@@ -256,9 +246,8 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     
     with st.form("form_cmms"):
         mc1, mc2, mc3 = st.columns(3)
-        
         with mc1:
-            m_id = st.selectbox("Unidad a Atender:", df_padron[id_col].tolist())
+            m_id = st.selectbox("Unidad Atendida:", df_padron[id_col].tolist())
             m_tipo = st.selectbox("Tipo de Intervención:", [
                 "Mantenimiento Preventivo (Programado)",
                 "Mantenimiento Correctivo (Falla)",
@@ -266,17 +255,14 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 "Revisión de Batería e Hidráulica",
                 "Atención por Garantía"
             ])
-            
         with mc2:
             m_fecha = st.date_input("Fecha del Servicio:")
             m_tecnico = st.text_input("Taller Proveedor / Técnico Responsable:")
-            
         with mc3:
             m_horo = st.number_input("Horómetro Actual (Horas):", min_value=0, value=0)
             m_costo = st.number_input("Costo Estimado ($ MXN):", min_value=0.0, value=0.0)
             
         m_obs = st.text_area("Dictamen Técnico, Observaciones y Refacciones Reemplazadas:")
-        
         btn_cmms = st.form_submit_button("📌 Registrar Servicio en Supabase")
         
         if btn_cmms:
@@ -291,7 +277,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     "observaciones": m_obs
                 }
                 supabase.table("mantenimientos_montacargas").insert(record).execute()
-                st.success(f"¡Mantenimiento registrado exitosamente para la unidad {m_id}!")
+                st.success(f"¡Mantenimiento registrado con éxito para la unidad {m_id}!")
                 st.cache_resource.clear()
             except Exception as ex:
                 st.error(f"Error al guardar servicio: {ex}")
@@ -330,7 +316,6 @@ elif menu == "📝 Editar / Registrar Unidad":
                 e_s_c = st.text_input("Serie Cargador:", value=str(row_e.get("serie_cargador", "")))
                 
             btn_update = st.form_submit_button("💾 Guardar Cambios en Supabase")
-            
             if btn_update:
                 try:
                     up_data = {
@@ -366,10 +351,9 @@ elif menu == "📝 Editar / Registrar Unidad":
                 n_fact = st.text_input("No. Factura:")
                 
             btn_add = st.form_submit_button("🚀 Crear Unidad en Base de Datos")
-            
             if btn_add:
                 if not n_id:
-                    st.error("El ID del equipo es un campo obligatorio.")
+                    st.error("El ID del equipo es obligatorio.")
                 else:
                     try:
                         n_record = {
