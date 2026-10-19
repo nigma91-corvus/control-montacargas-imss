@@ -133,6 +133,8 @@ st.sidebar.markdown("---")
 st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
 st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 
+import altair as alt
+
 # ==========================================
 # MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
 # ==========================================
@@ -141,21 +143,23 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     
     total_u = len(df_padron)
     
-    op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
-    garantia_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia", case=False, na=False)])
-    inconcluso_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
+    op_count = len(df_padron[df_padron["estatus_operativo"].astype(str).str.contains("Operativo", case=False, na=False)])
+    garantia_count = len(df_padron[df_padron["estatus_operativo"].astype(str).str.contains("Garantía|Garantia", case=False, na=False)])
+    inconcluso_count = len(df_padron[df_padron["estatus_operativo"].astype(str).str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
     
     if op_count == 0 and garantia_count == 0 and inconcluso_count == 0:
         op_count = total_u
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # CONTEO EXACTO DE ETAPAS (Ajusta el texto si en tu BD dice diferente, ej. "ETAPA 1", "Etapa I", etc.)
-    # Si la columna se llama exactamente 'etapa_contractual':
-    etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 1", "1", "primera etapa"])])
-    etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 2", "2", "segunda etapa"])])
-    etapa3 = len(df_padron[df_padron["etapa_contractual"].str.strip().str.lower().isin(["etapa 3", "3", "tercera etapa"])])
-    etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 4", "4", "cuarta etapa"])])
+    # CONTEO DE ETAPAS CONTRACTUALES (Búsqueda flexible por número)
+    if "etapa_contractual" in df_padron.columns:
+        etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("1", na=False)])
+        etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("2", na=False)])
+        etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("3", na=False)])
+        etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("4", na=False)])
+    else:
+        etapa1 = etapa2 = etapa3 = etapa4 = 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
     
@@ -170,34 +174,38 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # DISTRIBUCIÓN POR OOAD / ESTADO (Con tabla limpia y barras institucionales en fondo blanco)
+    # GRÁFICA ALTAIR EN FONDO BLANCO E INSTITUCIONAL (Sin dependencias extras)
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         
-        # Mostramos una tabla estilizada institucional limpia en lugar de la gráfica nativa que sale en negro
-        st.dataframe(
-            counts_ooad_full,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "OOAD_Estado": st.column_config.TextColumn("OOAD / Estado / Delegación", width="medium"),
-                "Total": st.column_config.ProgressColumn(
-                    "Total de Unidades",
-                    format="%d U",
-                    min_value=0,
-                    max_value=int(counts_ooad_full["Total"].max()) if not counts_ooad_full.empty else 100,
-                )
-            }
+        # Gráfica de barras Altair sobre fondo claro
+        chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
+            x=alt.X('OOAD_Estado:N', title='OOAD / Estado', sort='-y', axis=alt.Axis(labelAngle=-45, labelColor='#1F2937')),
+            y=alt.Y('Total:Q', title='Número de Unidades', axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB')),
+            tooltip=['OOAD_Estado', 'Total']
+        ).properties(
+            width='container',
+            height=350
+        ).configure_view(
+            strokeWidth=0,
+            fill='white'
+        ).configure(
+            background='white'
         )
+        
+        st.altair_chart(chart, use_container_width=True)
+        
+        with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
+            st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     
     st.subheader("🔎 Control de Unidades con Servicios o Garantías Inconclusas")
     
-    df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
+    df_atencion = df_padron[df_padron["estatus_operativo"].astype(str).str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
     
     if not df_atencion.empty:
         st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos.")
