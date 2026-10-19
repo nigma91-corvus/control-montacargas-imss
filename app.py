@@ -152,23 +152,16 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # CONTEO INDEPENDIENTE Y LIMPIO PARA CADA ETAPA
+    # CONTEO STRICTO DE ETAPAS
     if "etapa_contractual" in df_padron.columns:
-        etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 1", "1", "primera etapa", "e1"])])
-        etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 2", "2", "segunda etapa", "e2"])])
-        etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 3", "3", "tercera etapa", "e3"])])
-        etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 4", "4", "cuarta etapa", "e4"])])
+        s_etapa = df_padron["etapa_contractual"].astype(str).str.strip().str.lower()
         
-        # Respaldo por coincidencia parcial si los valores exactos dan 0 pero existen textos
-        if etapa1 == 0: etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("1", case=False, na=False)])
-        if etapa2 == 0: etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("2", case=False, na=False)])
-        if etapa3 == 0: etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("3", case=False, na=False)])
-        if etapa4 == 0: etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("4", case=False, na=False)])
+        etapa1 = len(df_padron[s_etapa.isin(["etapa 1", "1", "primera etapa", "e1"])])
+        etapa2 = len(df_padron[s_etapa.isin(["etapa 2", "2", "segunda etapa", "e2"])])
+        etapa3 = len(df_padron[s_etapa.isin(["etapa 3", "3", "tercera etapa", "e3"])])
+        etapa4 = len(df_padron[s_etapa.isin(["etapa 4", "4", "cuarta etapa", "e4"])])
     else:
-        etapa1 = 56
-        etapa2 = 80
-        etapa3 = 42
-        etapa4 = 0
+        etapa1, etapa2, etapa3, etapa4 = 56, 80, 42, 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
     
@@ -220,7 +213,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
         st.success("🟢 No hay registros con servicios o garantías pendientes. Flota al 100% de cumplimiento.")
-
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
