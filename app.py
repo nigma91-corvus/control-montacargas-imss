@@ -135,63 +135,35 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 
 # ==========================================
-# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Gráfica Nativa Streamlit)
+# MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
-if menu == "📊 Dashboard & Semáforo de Flota":
-    st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
+elif menu == "🔍 Buscador Universal & Tabla Maestro":
+    st.subheader("🔍 Buscador Universal de Unidades")
+    st.caption("Localice equipos rápidamente por NNI, Número de Inventario, Serie o Etapa Contractual.")
     
-    total_u = len(df_padron)
+    col_s1, col_s2, col_s3 = st.columns(3)
     
-    op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
-    garantia_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia", case=False, na=False)])
-    inconcluso_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
-    
-    if op_count == 0 and garantia_count == 0 and inconcluso_count == 0:
-        op_count = total_u
+    with col_s1:
+        search_nni = st.text_input("Buscar por NNI", placeholder="Ej. NNI-...")
+    with col_s2:
+        search_inv = st.text_input("Buscar por No. Inventario", placeholder="Ej. INV-...")
+    with col_s3:
+        search_stage = st.selectbox("Filtrar por Etapa Contractual", ["Todas", "Etapa 1", "Etapa 2", "Etapa 3", "Etapa 4"])
         
-    disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
+    # Filtrado dinámico seguro
+    df_filtered = df_padron.copy()
     
-    etapa1 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 1|1", case=False, na=False)])
-    etapa2 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 2|2", case=False, na=False)])
-    etapa3 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 3|3", case=False, na=False)])
-    etapa4 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 4|4", case=False, na=False)])
-
-    c1, c2, c3, c4, c5 = st.columns(5)
-    
-    with c1:
-        st.metric("Total Flota", f"{total_u} U")
-        st.caption(f"E1: {etapa1} | E2: {etapa2} | E3: {etapa3} | E4: {etapa4}")
+    if search_nni:
+        df_filtered = df_filtered[df_filtered["nni"].astype(str).str.contains(search_nni, case=False, na=False)]
+    if search_inv:
+        df_filtered = df_filtered[df_filtered["numero_inventario"].astype(str).str.contains(search_inv, case=False, na=False)]
+    if search_stage != "Todas":
+        df_filtered = df_filtered[df_filtered["etapa_contractual"].astype(str).str.contains(search_stage, case=False, na=False)]
         
-    c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
-    c3.metric("🟢 Operativos", f"{op_count} U")
-    c4.metric("🟡 Servicio Garantía Inconcluso", f"{garantia_count} U")
-    c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
-
     st.markdown("---")
+    st.subheader(f"📋 Padrón y Resultados ({len(df_filtered)} unidades encontradas)")
     
-    st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
-    
-    if "ooad_estado" in df_padron.columns:
-        counts_ooad_full = df_padron["ooad_estado"].value_counts()
-        
-        # Gráfica nativa integrada sin librerías externas
-        st.bar_chart(counts_ooad_full)
-        
-        with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            df_summary = pd.DataFrame({
-                "OOAD / Estado": counts_ooad_full.index,
-                "Total Montacargas": counts_ooad_full.values
-            })
-            st.dataframe(df_summary, use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    
-    st.subheader("🔎 Control de Unidades con Servicios o Garantías Inconclusas")
-    
-    df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
-    
-    if not df_atencion.empty:
-        st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos.")
-        st.dataframe(df_atencion, use_container_width=True, hide_index=True)
+    if not df_filtered.empty:
+        st.dataframe(df_filtered, use_container_width=True, hide_index=True)
     else:
-        st.success("🟢 No hay registros con servicios o garantías pendientes. Flota al 100% de cumplimiento.")
+        st.warning("⚠️ No se encontraron unidades con los criterios de búsqueda especificados. Verifique los datos o intente con otro parámetro.")
