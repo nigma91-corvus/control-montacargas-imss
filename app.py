@@ -162,7 +162,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     df_dash = df_padron.copy()
     if filtro_etapa_dash != "Todas las Etapas":
         if filtro_etapa_dash == "Etapa 4":
-            # Como la etapa 4 no existe, filtramos por un valor imposible para que arroje 0 unidades limpiamente
             df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.contains("NO_EXISTE", case=False, na=False)]
         else:
             df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == filtro_etapa_dash.lower()]
@@ -191,12 +190,23 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # GRÁFICA AJUSTADA AL FILTRO SELECCIONADO
+    # GRÁFICA ASEGURANDO QUE APAREZCAN TODOS LOS ESTADOS (CON RELLENO DE CEROS SI ES NECESARIO)
     st.subheader(f"📍 Distribución por OOAD / Estado ({filtro_etapa_dash})")
     
-    if "ooad_estado" in df_dash.columns and not df_dash.empty:
-        counts_ooad_full = df_dash["ooad_estado"].value_counts().reset_index()
-        counts_ooad_full.columns = ["OOAD_Estado", "Total"]
+    if "ooad_estado" in df_padron.columns and not df_padron.empty:
+        # Obtenemos el listado maestro de todos los estados posibles del padrón general
+        todos_estados = df_padron["ooad_estado"].dropna().unique()
+        
+        if not df_dash.empty:
+            counts_filtrados = df_dash["ooad_estado"].value_counts()
+        else:
+            counts_filtrados = pd.Series(dtype=int)
+            
+        # Reconstruimos el dataframe asegurando que aparezcan todos los estados (rellenando con 0 los faltantes)
+        counts_ooad_full = pd.DataFrame({
+            "OOAD_Estado": todos_estados,
+            "Total": [counts_filtrados.get(est, 0) for est in todos_estados]
+        }).sort_values(by="Total", ascending=False).reset_index(drop=True)
         
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
             y=alt.Y('OOAD_Estado:N', title='OOAD / Estado', sort='-x', 
@@ -217,7 +227,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
             st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
     else:
-        st.info(f"⚠️ No hay unidades registradas para la selección: {filtro_etapa_dash}")
+        st.info(f"⚠️ No hay unidades registradas en el padrón.")
 
     st.markdown("---")
     
