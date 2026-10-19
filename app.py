@@ -130,20 +130,21 @@ menu = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
 st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
+import plotly.express as px
+
 # ==========================================
-# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
+# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Con gráfica en tonos claros)
 # ==========================================
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
     total_u = len(df_padron)
     
-    # Conteo por estatus operativo alineado al nuevo enfoque
+    # Conteo por estatus operativo
     op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
     garantia_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia", case=False, na=False)])
     inconcluso_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
     
-    # Ajuste por defecto si no existen diferencias de estatus aún
     if op_count == 0 and garantia_count == 0 and inconcluso_count == 0:
         op_count = total_u
         
@@ -169,19 +170,37 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # DISTRIBUCIÓN COMPLETA POR OOAD EN FONDO CLARO
+    # DISTRIBUCIÓN COMPLETA POR OOAD EN GRÁFICA PLOTLY DE FONDO CLARO
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
-        counts_ooad_full = df_padron["ooad_estado"].value_counts()
-        st.bar_chart(counts_ooad_full)
+        counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
+        counts_ooad_full.columns = ["OOAD_Estado", "Total"]
+        
+        # Gráfica de barras con Plotly con diseño 100% claro institucional
+        fig = px.bar(
+            counts_ooad_full,
+            x="OOAD_Estado",
+            y="Total",
+            text="Total",
+            color_discrete_sequence=["#005A36"] # Verde IMSS
+        )
+        
+        fig.update_layout(
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            font=dict(color="#1F2937", family="sans-serif"),
+            xaxis=dict(title="OOAD / Estado", showgrid=False),
+            yaxis=dict(title="Número de Unidades", showgrid=True, gridcolor="#E5E7EB"),
+            margin=dict(t=20, b=20, l=20, r=20)
+        )
+        
+        fig.update_traces(textposition='outside')
+        
+        st.plotly_chart(fig, use_container_width=True)
         
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            df_summary = pd.DataFrame({
-                "OOAD / Estado": counts_ooad_full.index,
-                "Total Montacargas": counts_ooad_full.values
-            })
-            st.dataframe(df_summary, use_container_width=True, hide_index=True)
+            st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     
