@@ -328,13 +328,15 @@ if menu == "📁 Ficha Digital por Equipo":
                     with tab_gen:
                         st.markdown("#### Detalle Contractual y Técnico")
                         
-                        # CONSTRUCCIÓN SEGURA FILA POR FILA PARA EVITAR CONFLICTOS DE TIPOS ARROW
                         data_detalle = []
                         for col in df_padron.columns:
                             val = unidad.get(col, "N/D")
-                            data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": str(val) if pd.notna(val) else "N/D"})
+                            val_str = "N/D" if pd.isna(val) else str(val)
+                            data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": val_str})
                         
                         df_detalle_safe = pd.DataFrame(data_detalle)
+                        # CONVERSIÓN TOTAL A TEXTO PARA ELIMINAR CUALQUIER CONFLICTO CON ARROW EN COLUMNAS MIXTAS
+                        df_detalle_safe = df_detalle_safe.astype(str)
                         
                         st.dataframe(
                             df_detalle_safe,
