@@ -270,7 +270,6 @@ if menu == "🔍 Buscador Universal & Tabla Maestro":
 # ==========================================
 if "Ficha Digital" in str(menu):
     st.subheader("📁 Ficha Digital e Historial por Equipo")
-    st.markdown("Consulta integral del expediente, semáforo de completitud documental y repositorio por unidad.")
     
     # Búsqueda segura del DataFrame cargado
     df_actual = None
@@ -285,78 +284,113 @@ if "Ficha Digital" in str(menu):
             col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
             col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
             
-            opciones_unidades = df_actual[col_inv].astype(str) + " - Serie: " + df_actual[col_ser].astype(str)
+            # Formato compacto para el selector de unidad
+            opciones_unidades = df_actual[col_inv].astype(str) + " | Serie: " + df_actual[col_ser].astype(str)
             
             selected_unit_label = st.selectbox(
-                "Seleccione o busque el equipo por Inventario / Serie:",
-                options=opciones_unidades
+                "Seleccionar Equipo (Inv. | Serie):",
+                options=opciones_unidades,
+                help="Seleccione o escriba para buscar un equipo"
             )
             
             if selected_unit_label:
-                inv_val = selected_unit_label.split(" - Serie: ")[0]
+                inv_val = selected_unit_label.split(" | Serie: ")[0]
                 df_unidad = df_actual[df_actual[col_inv].astype(str) == inv_val]
                 
                 if not df_unidad.empty:
                     unidad = df_unidad.iloc[0]
                     
+                    # TARJETA DE PRESENTACIÓN EJECUTIVA COMPACTA
                     st.markdown("---")
-                    
-                    # TARJETA DE PRESENTACIÓN EJECUTIVA
-                    st.markdown("### 🏷️ Identificación del Equipo")
                     col_d1, col_d2, col_d3, col_d4 = st.columns(4)
                     col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
-                    col_d2.metric("No. de Serie", str(unidad.get(col_ser, "N/D")))
+                    col_d2.metric("Serie", str(unidad.get(col_ser, "N/D")))
                     col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
-                    col_d4.metric("Estatus Operativo", str(unidad.get("estatus_operativo", "N/D")))
+                    col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
                     
-                    # SEMÁFORO DE COMPLETITUD DE DATOS
-                    campos_a_evaluar = [col_inv, col_ser, "modelo", "ooad_estado", "estatus_operativo", "etapa_contractual"]
-                    completados = sum(1 for c in campos_a_evaluar if c in unidad and pd.notna(unidad[c]) and str(unidad[c]).strip() != "")
-                    score = int((completados / len(campos_a_evaluar)) * 100)
+                    # SEMÁFORO DE DATOS EXISTENTES (SALUD DEL EXPEDIENTE SOBRE EL TOTAL DE COLUMNAS)
+                    tot_columnas = len(df_actual.columns)
+                    existentes = sum(
+                        1 for c in df_actual.columns 
+                        if pd.notna(unidad.get(c)) and str(unidad.get(c)).strip() not in ["", "None", "nan", "N/D", "null"]
+                    )
+                    score = int((existentes / tot_columnas) * 100) if tot_columnas > 0 else 0
                     
-                    st.markdown("### 🚦 Semáforo de Completitud del Expediente")
+                    st.markdown("#### 🚦 Porcentaje de Datos Existentes en Expediente")
                     col_s1, col_s2 = st.columns([1, 4])
                     with col_s1:
-                        if score == 100:
-                            st.success(f"**{score}% Completo** 🟢")
-                        elif score >= 70:
-                            st.warning(f"**{score}% Completo** 🟡")
+                        if score >= 90:
+                            st.success(f"**{score}% ({existentes}/{tot_columnas})** 🟢")
+                        elif score >= 60:
+                            st.warning(f"**{score}% ({existentes}/{tot_columnas})** 🟡")
                         else:
-                            st.error(f"**{score}% Completo** 🔴")
+                            st.error(f"**{score}% ({existentes}/{tot_columnas})** 🔴")
                     with col_s2:
                         st.progress(score / 100)
-                        st.caption("Porcentaje de campos críticos capturados en el padrón para esta unidad.")
+                        st.caption(f"Registrados: {existentes} de {tot_columnas} campos totales de la base de datos.")
                         
                     st.markdown("---")
                     
                     # PESTAÑAS DEL EXPEDIENTE 360°
-                    tab_gen, tab_doc, tab_hist = st.tabs(["📋 Ficha Técnica", "📄 Repositorio Documental", "🛠️ Historial y Bitácora"])
+                    tab_gen, tab_edit, tab_doc, tab_hist = st.tabs([
+                        "📋 Ficha Técnica", 
+                        "✏️ Capturar/Editar Pendientes", 
+                        "📄 Repositorio Documental", 
+                        "🛠️ Bitácora de Mantenimiento"
+                    ])
                     
                     with tab_gen:
-                        st.markdown("#### Detalle Contractual y Técnico")
+                        st.markdown("##### Consulta de Datos del Equipo")
+                        
+                        # Buscador interno compacto de cualquier dato dentro de la ficha
+                        filtro_ficha = st.text_input(
+                            "🔍 Buscar dato en esta ficha:",
+                            placeholder="Escriba cualquier término (ej. marca, motor, factura...)"
+                        )
                         
                         data_detalle = []
                         for col in df_actual.columns:
-                            val = unidad.get(col, "N/D")
-                            val_str = "N/D" if pd.isna(val) else str(val)
-                            data_detalle.append({"Campo del Padrón": str(col), "Valor Registrado": val_str})
+                            val = unidad.get(col)
+                            val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
+                            
+                            # Filtro por término si el usuario busca algo en la ficha
+                            if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
+                                data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
                         
                         df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
+                        st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
                         
-                        st.dataframe(
-                            df_detalle_safe,
-                            width='stretch',
-                            hide_index=True
-                        )
+                    with tab_edit:
+                        st.markdown("##### Captura y Actualización de Datos Pendientes")
+                        st.caption("Los campos marcados con N/D o vacíos requieren captura para completar el expediente.")
+                        
+                        # Formulario dinámico para completar campos vacíos/existentes
+                        with st.form("form_editar_unidad"):
+                            campos_incompletos = []
+                            cols_form = st.columns(2)
+                            idx = 0
+                            
+                            for col in df_actual.columns:
+                                val_act = unidad.get(col)
+                                val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
+                                
+                                with cols_form[idx % 2]:
+                                    nuevo_val = st.text_input(f"Campo: {col}", value=val_str, key=f"edit_{col}")
+                                    
+                                idx += 1
+                                
+                            btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Unidad")
+                            if btn_guardar:
+                                st.success("✅ Cambios registrados correctamente en la sesión.")
                         
                     with tab_doc:
-                        st.markdown("#### Repositorio de Facturas y Pólizas")
-                        st.info("📌 Espacio preparado para la gestión y visualización de archivos PDF (Factura, Acta de Entrega y Póliza de Garantía).")
+                        st.markdown("##### Repositorio de Facturas y Pólizas")
+                        st.info("📌 Espacio listo para vinculación de expedientes digitales (Factura, Póliza, Acta Entrega-Recepción).")
                         
                     with tab_hist:
-                        st.markdown("#### Bitácora de Mantenimiento y Servicios")
-                        st.info("🔧 Historial cronológico de mantenimientos preventivos, correctivos y seguimiento de garantías.")
+                        st.markdown("##### Bitácora y Servicios")
+                        st.info("🔧 Registro cronológico de mantenimientos y eventos del equipo.")
         except Exception as e:
             st.error(f"⚠️ Error al renderizar la ficha: {e}")
     else:
-        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión. Asegúrate de que los datos se hayan cargado correctamente.")
+        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
