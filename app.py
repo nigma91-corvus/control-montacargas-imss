@@ -287,21 +287,20 @@ if "Ficha Digital" in str(menu):
             # BARRA DE BÚSQUEDA LIBRE MULTI-COINCIDENCIA
             st.markdown("##### 🔍 Buscador General de Unidades")
             texto_busqueda_unidad = st.text_input(
-                "Escribe cualquier término (ej. número, serie, modelo, OOAD) para ver todas las coincidencias:",
+                "Escribe cualquier término (número de inventario, serie, modelo, OOAD) para listar las unidades:",
                 placeholder="Escribe aquí para buscar...",
-                key="input_busqueda_ficha_general"
+                key="input_busqueda_ficha_general_v2"
             )
             
             df_filtrado_unidades = df_actual.copy()
             if texto_busqueda_unidad and texto_busqueda_unidad.strip() != "":
-                # Filtro flexible a nivel de texto en todo el dataframe
                 mask = df_filtrado_unidades.astype(str).apply(
                     lambda col: col.str.contains(texto_busqueda_unidad.strip(), case=False, na=False)
                 ).any(axis=1)
                 df_filtrado_unidades = df_filtrado_unidades[mask]
             
             if not df_filtrado_unidades.empty:
-                # Diccionario dinámico para capturar y listar TODOS los resultados coincidentes
+                # Diccionario dinámico con todas las coincidencias encontradas
                 opciones_dict = {}
                 for idx, row in df_filtrado_unidades.iterrows():
                     inv = str(row.get(col_inv, "N/D"))
@@ -309,7 +308,6 @@ if "Ficha Digital" in str(menu):
                     mod = str(row.get("modelo", "N/D"))
                     ooad = str(row.get("ooad_estado", "N/D"))
                     label = f"Inv: {inv}  |  Serie: {ser}  |  Modelo: {mod}  |  OOAD: {ooad}"
-                    # Asegurar etiquetas únicas en caso de índices duplicados
                     if label in opciones_dict:
                         label = f"{label} (Fila {idx})"
                     opciones_dict[label] = idx
@@ -317,7 +315,7 @@ if "Ficha Digital" in str(menu):
                 selected_label = st.selectbox(
                     f"Seleccione la unidad deseada (Total encontradas: {len(opciones_dict)}):",
                     options=list(opciones_dict.keys()),
-                    key="selectbox_unidades_ficha"
+                    key="selectbox_unidades_ficha_v2"
                 )
                 
                 if selected_label:
@@ -355,64 +353,53 @@ if "Ficha Digital" in str(menu):
                         
                     st.markdown("---")
                     
-                    # PESTAÑAS PRINCIPALES DEL EXPEDIENTE 360° (CON PESTAÑA DE CAPTURA DIRECTA Y VISIBLE)
-                    tab_gen, tab_edit, tab_doc, tab_hist = st.tabs([
-                        "📋 Ficha Técnica", 
-                        "✏️ Capturar Datos Faltantes", 
-                        "📄 Repositorio Documental", 
-                        "🛠️ Bitácora de Mantenimiento"
-                    ])
+                    # -------------------------------------------------------------
+                    # SECCIÓN 1: CAPTURA Y ACTUALIZACIÓN DE DATOS FALTANTES (DIRECTA Y VISIBLE)
+                    # -------------------------------------------------------------
+                    st.markdown("### ✏️ Capturar y Actualizar Datos Faltantes de la Unidad")
+                    st.markdown("Modifica o llena los campos que aparecen vacíos o con `N/D` para elevar la completitud del expediente.")
                     
-                    with tab_gen:
-                        st.markdown("##### Consulta General de la Unidad")
+                    with st.form(f"form_editar_unidad_real_{idx_seleccionado}"):
+                        cols_form = st.columns(2)
+                        idx_col = 0
                         
-                        filtro_ficha = st.text_input(
-                            "🔍 Buscar un dato específico dentro de esta ficha:",
-                            placeholder="Escriba cualquier texto...",
-                            key="filtro_ficha_interna_text"
-                        )
-                        
-                        data_detalle = []
                         for col in df_actual.columns:
-                            val = unidad.get(col)
-                            val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
+                            val_act = unidad.get(col)
+                            val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
                             
-                            if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
-                                data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
-                        
-                        df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
-                        st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
-                        
-                    with tab_edit:
-                        st.markdown("##### ✏️ Captura y Actualización de Campos Pendientes")
-                        st.markdown("Modifica o llena los datos que tengan valores vacíos o `N/D` para elevar la completitud del expediente de la unidad.")
-                        
-                        with st.form(f"form_editar_unidad_real_{idx_seleccionado}"):
-                            cols_form = st.columns(2)
-                            idx_col = 0
-                            
-                            # Diccionario temporal para almacenar los nuevos valores en el formulario
-                            nuevos_valores = {}
-                            for col in df_actual.columns:
-                                val_act = unidad.get(col)
-                                val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
+                            with cols_form[idx_col % 2]:
+                                st.text_input(f"Campo: {col}", value=val_str, key=f"form_input_{col}_{idx_seleccionado}")
                                 
-                                with cols_form[idx_col % 2]:
-                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"form_input_{col}_{idx_seleccionado}")
-                                    
-                                idx_col += 1
-                                
-                            btn_guardar = st.form_submit_button("💾 Guardar Cambios y Actualizar Padrón")
-                            if btn_guardar:
-                                st.success("✅ ¡Datos de la unidad actualizados correctamente en la sesión!")
+                            idx_col += 1
                             
-                    with tab_doc:
-                        st.markdown("##### Repositorio de Documentos")
-                        st.info("📌 Espacio reservado para actas de entrega, facturas y pólizas.")
+                        btn_guardar = st.form_submit_button("💾 Guardar Cambios y Actualizar Padrón")
+                        if btn_guardar:
+                            st.success("✅ ¡Datos de la unidad actualizados correctamente en la sesión!")
+                            
+                    st.markdown("---")
+                    
+                    # -------------------------------------------------------------
+                    # SECCIÓN 2: CONSULTA GENERAL DE FICHA TÉCNICA
+                    # -------------------------------------------------------------
+                    st.markdown("### 📋 Ficha Técnica y Detalle del Expediente")
+                    
+                    filtro_ficha = st.text_input(
+                        "🔍 Buscar un dato específico dentro de esta ficha:",
+                        placeholder="Escriba cualquier texto...",
+                        key="filtro_ficha_interna_text_v2"
+                    )
+                    
+                    data_detalle = []
+                    for col in df_actual.columns:
+                        val = unidad.get(col)
+                        val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
                         
-                    with tab_hist:
-                        st.markdown("##### Bitácora de Mantenimiento")
-                        st.info("🔧 Historial de servicios preventivos y correctivos del equipo.")
+                        if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
+                            data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
+                    
+                    df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
+                    st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
+                    
             else:
                 st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda ingresada.")
         except Exception as e:
