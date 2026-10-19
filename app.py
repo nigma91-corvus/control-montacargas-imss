@@ -141,7 +141,6 @@ import altair as alt
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
-    # Contenedor limpio para el selector de etapa
     st.markdown("""
         <style>
         div[data-baseweb="select"] > div {
@@ -159,11 +158,15 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             ["Todas las Etapas", "Etapa 1", "Etapa 2", "Etapa 3", "Etapa 4"]
         )
     
-    # Aplicar el filtro dinámico al DataFrame principal del dashboard
+    # FILTRADO ESTRICTO Y EXACTO (Evita falsos positivos con números sueltos o inventarios)
     df_dash = df_padron.copy()
     if filtro_etapa_dash != "Todas las Etapas":
+        # Normalizamos la columna y el filtro a minúsculas sin espacios
+        s_etapa = df_dash["etapa_contractual"].astype(str).str.strip().str.lower()
         num_etapa = filtro_etapa_dash.replace("Etapa ", "").strip()
-        df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.contains(num_etapa, case=False, na=False)]
+        
+        # Coincidencia exacta por texto completo o número exacto de celda
+        df_dash = df_dash[s_etapa.isin([filtro_etapa_dash.lower(), num_etapa, f"etapa {num_etapa}", f"etapa-{num_etapa}"])]
 
     total_u = len(df_dash)
     
@@ -215,7 +218,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
             st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
     else:
-        st.info(f"No hay unidades registradas para la selección: {filtro_etapa_dash}")
+        st.info(f"⚠️ No hay unidades registradas para la selección: {filtro_etapa_dash}")
 
     st.markdown("---")
     
@@ -227,7 +230,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos en esta selección.")
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
-        st.success("🟢 No hay registros con servicios ou garantías pendientes en esta vista.")
+        st.success("🟢 No hay registros con servicios o garantías pendientes en esta vista.")
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
