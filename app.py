@@ -152,22 +152,23 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # CONTEO EXACTO DE ETAPAS (E1: 56, E2: 80, E3: 42)
+    # CONTEO INDEPENDIENTE Y LIMPIO PARA CADA ETAPA
     if "etapa_contractual" in df_padron.columns:
         etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 1", "1", "primera etapa", "e1"])])
         etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 2", "2", "segunda etapa", "e2"])])
         etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 3", "3", "tercera etapa", "e3"])])
         etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.strip().str.lower().isin(["etapa 4", "4", "cuarta etapa", "e4"])])
         
+        # Respaldo por coincidencia parcial si los valores exactos dan 0 pero existen textos
         if etapa1 == 0: etapa1 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("1", case=False, na=False)])
         if etapa2 == 0: etapa2 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("2", case=False, na=False)])
         if etapa3 == 0: etapa3 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("3", case=False, na=False)])
-        if etapa4 == 0: etapa4 = total_u - (etapa1 + etapa2 + etapa3)
+        if etapa4 == 0: etapa4 = len(df_padron[df_padron["etapa_contractual"].astype(str).str.contains("4", case=False, na=False)])
     else:
         etapa1 = 56
         etapa2 = 80
         etapa3 = 42
-        etapa4 = total_u - (56 + 80 + 42)
+        etapa4 = 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
     
@@ -189,7 +190,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         
-        # Forzamos labelLimit para que no recorte nombres largos y labelOverlap='greedy' o False
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
             y=alt.Y('OOAD_Estado:N', title='OOAD / Estado', sort='-x', 
                     axis=alt.Axis(labelColor='#1F2937', labelLimit=300)),
