@@ -132,15 +132,16 @@ st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
 st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 import plotly.express as px
 
+import matplotlib.pyplot as plt
+
 # ==========================================
-# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Con gráfica en tonos claros)
+# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Matplotlib - Fondo Blanco)
 # ==========================================
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
     total_u = len(df_padron)
     
-    # Conteo por estatus operativo
     op_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Operativo", case=False, na=False)])
     garantia_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia", case=False, na=False)])
     inconcluso_count = len(df_padron[df_padron["estatus_operativo"].str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
@@ -150,13 +151,11 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
     
-    # Desglose por Etapas Contractuales
     etapa1 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 1|1", case=False, na=False)])
     etapa2 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 2|2", case=False, na=False)])
     etapa3 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 3|3", case=False, na=False)])
     etapa4 = len(df_padron[df_padron["etapa_contractual"].str.contains("Etapa 4|4", case=False, na=False)])
 
-    # Indicadores Métricos Superiores
     c1, c2, c3, c4, c5 = st.columns(5)
     
     with c1:
@@ -170,41 +169,43 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # DISTRIBUCIÓN COMPLETA POR OOAD EN GRÁFICA PLOTLY DE FONDO CLARO
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
-        counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
-        counts_ooad_full.columns = ["OOAD_Estado", "Total"]
+        counts_ooad_full = df_padron["ooad_estado"].value_counts()
         
-        # Gráfica de barras con Plotly con diseño 100% claro institucional
-        fig = px.bar(
-            counts_ooad_full,
-            x="OOAD_Estado",
-            y="Total",
-            text="Total",
-            color_discrete_sequence=["#005A36"] # Verde IMSS
-        )
+        # Figura limpia en Matplotlib sobre fondo totalmente blanco
+        fig, ax = plt.subplots(figsize=(10, 4))
+        fig.patch.set_facecolor('#FFFFFF')
+        ax.set_facecolor('#FFFFFF')
         
-        fig.update_layout(
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            font=dict(color="#1F2937", family="sans-serif"),
-            xaxis=dict(title="OOAD / Estado", showgrid=False),
-            yaxis=dict(title="Número de Unidades", showgrid=True, gridcolor="#E5E7EB"),
-            margin=dict(t=20, b=20, l=20, r=20)
-        )
+        bars = ax.bar(counts_ooad_full.index, counts_ooad_full.values, color='#005A36')
         
-        fig.update_traces(textposition='outside')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#E5E7EB')
+        ax.spines['bottom'].set_color('#E5E7EB')
         
-        st.plotly_chart(fig, use_container_width=True)
+        plt.xticks(rotation=45, ha='right', fontsize=9, color='#1F2937')
+        plt.yticks(color='#1F2937')
+        plt.grid(axis='y', linestyle='--', alpha=0.3, color='#9CA3AF')
+        
+        # Valores sobre cada barra
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.1, int(yval), ha='center', va='bottom', fontsize=8, color='#1F2937', fontweight='bold')
+            
+        st.pyplot(fig)
         
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
+            df_summary = pd.DataFrame({
+                "OOAD / Estado": counts_ooad_full.index,
+                "Total Montacargas": counts_ooad_full.values
+            })
+            st.dataframe(df_summary, use_container_width=True, hide_index=True)
 
     st.markdown("---")
     
-    # SEGUIMIENTO DE SERVICIOS INCONCLUSOS Y GARANTÍAS
     st.subheader("🔎 Control de Unidades con Servicios o Garantías Inconclusas")
     
     df_atencion = df_padron[df_padron["estatus_operativo"].str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
