@@ -190,24 +190,24 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # GRÁFICA SIN DELEGACIONES VACÍAS Y CON NÚMEROS ESTRICTAMENTE ENTEROS
+    # GRÁFICA VERTICAL LIMPIA, SIN VACÍOS, NÚMEROS ENTEROS Y ETIQUETAS ROTADAS
     st.subheader(f"📍 Distribución por OOAD / Estado ({filtro_etapa_dash})")
     
     if "ooad_estado" in df_dash.columns and not df_dash.empty:
-        # Obtenemos los conteos y eliminamos automáticamente los que tengan 0 unidades
         counts_ooad_full = df_dash["ooad_estado"].value_counts().reset_index()
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         counts_ooad_full = counts_ooad_full[counts_ooad_full["Total"] > 0]
         
-        # Gráfica Altair con formato 'd' para forzar enteros absolutos en el eje numérico
+        # Gráfica vertical con ancho adaptativo por barra y formato 'd' para enteros
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
-            y=alt.Y('OOAD_Estado:N', title='OOAD / Estado', sort='-x', 
-                    axis=alt.Axis(labelColor='#1F2937', labelLimit=300)),
-            x=alt.X('Total:Q', title='Número de Unidades', 
+            x=alt.X('OOAD_Estado:N', title='OOAD / Estado', sort='-y', 
+                    axis=alt.Axis(labelAngle=-45, labelColor='#1F2937', labelLimit=300)),
+            y=alt.Y('Total:Q', title='Número de Unidades', 
                     axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB', format='d')),
             tooltip=['OOAD_Estado', 'Total']
         ).properties(
-            height=max(400, len(counts_ooad_full) * 22)
+            width=alt.Step(38),
+            height=380
         ).configure_view(
             strokeWidth=0,
             fill='white'
