@@ -295,7 +295,7 @@ if "Ficha Digital" in str(menu):
             texto_busqueda_unidad = st.text_input(
                 "Escribe cualquier criterio (o déjalo en blanco para ver todas las unidades):",
                 placeholder="Ej. OOAD, modelo, inventario, serie...",
-                key="input_busqueda_ficha_master_v4"
+                key="input_busqueda_ficha_master_v5"
             )
             
             df_filtrado_unidades = df_master.copy()
@@ -306,7 +306,6 @@ if "Ficha Digital" in str(menu):
                 df_filtrado_unidades = df_filtrado_unidades[mask]
             
             if not df_filtrado_unidades.empty:
-                # Diccionario dinámico con TODAS las coincidencias
                 opciones_dict = {}
                 for idx, row in df_filtrado_unidades.iterrows():
                     inv = str(row.get(col_inv, "N/D"))
@@ -319,7 +318,7 @@ if "Ficha Digital" in str(menu):
                 selected_label = st.selectbox(
                     f"Seleccione la unidad deseada ({len(opciones_dict)} disponibles en la lista):",
                     options=list(opciones_dict.keys()),
-                    key="selectbox_unidades_master_v4"
+                    key="selectbox_unidades_master_v5"
                 )
                 
                 if selected_label:
@@ -334,7 +333,7 @@ if "Ficha Digital" in str(menu):
                     col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
                     col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
                     
-                    # SEMÁFORO DE DATOS EXISTENTES (SALUD DEL EXPEDIENTE)
+                    # SEMÁFORO DE DATOS EXISTENTES
                     tot_columnas = len(df_master.columns)
                     existentes = sum(
                         1 for c in df_master.columns 
@@ -346,16 +345,14 @@ if "Ficha Digital" in str(menu):
                     st.progress(score / 100)
                     st.markdown("---")
                     
-                    # -------------------------------------------------------------
-                    # BOTÓN DE EDICIÓN CON ESTADO (ACTIVACIÓN POR BOTÓN)
-                    # -------------------------------------------------------------
-                    edit_state_key = f"edit_active_v4_{idx_seleccionado}"
+                    # BOTÓN DE EDICIÓN CON ESTADO
+                    edit_state_key = f"edit_active_v5_{idx_seleccionado}"
                     if edit_state_key not in st.session_state:
                         st.session_state[edit_state_key] = False
                         
                     col_b1, col_b2 = st.columns([1, 4])
                     with col_b1:
-                        if st.button("✏️ Habilitar Edición", key=f"btn_toggle_edit_v4_{idx_seleccionado}"):
+                        if st.button("✏️ Habilitar Edición", key=f"btn_toggle_edit_v5_{idx_seleccionado}"):
                             st.session_state[edit_state_key] = not st.session_state[edit_state_key]
                             st.rerun()
                     
@@ -365,9 +362,8 @@ if "Ficha Digital" in str(menu):
                         else:
                             st.caption("🔒 Haga clic en 'Habilitar Edición' para modificar o capturar datos faltantes de esta unidad.")
                     
-                    # Si el botón está activado, se despliega el formulario de modificación
                     if st.session_state[edit_state_key]:
-                        with st.form(f"form_editar_unidad_activo_v4_{idx_seleccionado}"):
+                        with st.form(f"form_editar_unidad_activo_v5_{idx_seleccionado}"):
                             st.markdown("##### 📝 Formulario de Actualización de Datos")
                             cols_form = st.columns(2)
                             idx_col = 0
@@ -378,13 +374,15 @@ if "Ficha Digital" in str(menu):
                                 val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
                                 
                                 with cols_form[idx_col % 2]:
-                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"input_edit_v4_{col}_{idx_seleccionado}")
+                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"input_edit_v5_{col}_{idx_seleccionado}")
                                     
                                 idx_col += 1
                                 
                             btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Unidad")
                             if btn_guardar:
+                                # CONVERSIÓN SEGURA DE COLUMNAS A OBJETO PARA EVITAR ERROR DE DTYPE FLOAT64
                                 for col, val in nuevos_valores.items():
+                                    df_master[col] = df_master[col].astype(object)
                                     df_master.loc[idx_seleccionado, col] = val
                                 st.session_state[edit_state_key] = False
                                 st.success("✅ ¡Datos actualizados correctamente en la sesión!")
@@ -392,15 +390,13 @@ if "Ficha Digital" in str(menu):
                     
                     st.markdown("---")
                     
-                    # -------------------------------------------------------------
                     # CONSULTA GENERAL DE FICHA TÉCNICA
-                    # -------------------------------------------------------------
                     st.markdown("### 📋 Ficha Técnica y Detalle del Expediente")
                     
                     filtro_ficha = st.text_input(
                         "🔍 Buscar un dato específico dentro de esta ficha:",
                         placeholder="Escriba cualquier texto...",
-                        key="filtro_ficha_interna_v4"
+                        key="filtro_ficha_interna_v5"
                     )
                     
                     data_detalle = []
