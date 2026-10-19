@@ -182,22 +182,21 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
     st.markdown("---")
     
-    # GRÁFICA CON ANCHO CONTROLADO PARA EVITAR QUE SE VEA DEMASIADO ANCHA
+    # GRÁFICA CON ESPACIO SUFICIENTE Y ETIQUETAS VISIBLES OBLIGATORIAS
     st.subheader("📍 Distribución Completa por OOAD / Estado (100% de Registros)")
     
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts().reset_index()
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         
-        # Usamos un ancho fijo de 650 para mantener proporciones limpias
+        # Forzamos labelLimit para que no recorte nombres largos y labelOverlap='greedy' o False
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
             y=alt.Y('OOAD_Estado:N', title='OOAD / Estado', sort='-x', 
-                    axis=alt.Axis(labelColor='#1F2937')),
+                    axis=alt.Axis(labelColor='#1F2937', labelLimit=300)),
             x=alt.X('Total:Q', title='Número de Unidades', axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB')),
             tooltip=['OOAD_Estado', 'Total']
         ).properties(
-            width=650, 
-            height=max(350, len(counts_ooad_full) * 20)
+            height=max(400, len(counts_ooad_full) * 22)
         ).configure_view(
             strokeWidth=0,
             fill='white'
@@ -205,10 +204,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             background='white'
         )
         
-        # Centramos la gráfica usando columnas para que no ocupe todo el ancho de la pantalla
-        col_g1, col_g2, col_g3 = st.columns([1, 3, 1])
-        with col_g2:
-            st.altair_chart(chart, use_container_width=False)
+        st.altair_chart(chart, use_container_width=True)
         
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
             st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
@@ -224,7 +220,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         st.dataframe(df_atencion, use_container_width=True, hide_index=True)
     else:
         st.success("🟢 No hay registros con servicios o garantías pendientes. Flota al 100% de cumplimiento.")
-        
+
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
