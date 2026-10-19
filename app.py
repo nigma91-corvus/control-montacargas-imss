@@ -271,29 +271,31 @@ if menu == "🔍 Buscador Universal & Tabla Maestro":
 if "Ficha Digital" in str(menu):
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     
-    # Búsqueda segura del padrón MAESTRO completo (evitando tablas ya filtradas de otros módulos)
+    # Búsqueda segura del padrón MAESTRO completo
     df_master = None
     for var_name in ["df_padron", "df", "padron"]:
         if var_name in locals() and isinstance(locals()[var_name], pd.DataFrame) and not locals()[var_name].empty:
             df_master = locals()[var_name]
             break
             
-    # Si no encuentra el maestro, toma cualquier dataframe disponible como respaldo
     if df_master is None and "df_filtered" in locals() and not df_filtered.empty:
         df_master = df_filtered
             
     if df_master is not None:
         try:
+            total_filas = len(df_master)
             cols = df_master.columns.tolist()
             col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
             col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
             
-            # BARRA DE BÚSQUEDA GLOBAL EN EL PADRÓN COMPLETO
+            st.info(f"📊 Unidades totales en el padrón: **{total_filas}**")
+            
+            # BARRA DE BÚSQUEDA GLOBAL
             st.markdown("##### 🔍 Buscador General de Unidades")
             texto_busqueda_unidad = st.text_input(
-                "Escribe cualquier criterio (inventario, serie, modelo, OOAD) para buscar en todo el padrón:",
-                placeholder="Escribe aquí para buscar...",
-                key="input_busqueda_ficha_master"
+                "Escribe cualquier criterio (o déjalo en blanco para ver todas las unidades):",
+                placeholder="Ej. OOAD, modelo, inventario, serie...",
+                key="input_busqueda_ficha_master_v4"
             )
             
             df_filtrado_unidades = df_master.copy()
@@ -304,22 +306,20 @@ if "Ficha Digital" in str(menu):
                 df_filtrado_unidades = df_filtrado_unidades[mask]
             
             if not df_filtrado_unidades.empty:
-                # Diccionario dinámico con TODAS las coincidencias del padrón
+                # Diccionario dinámico con TODAS las coincidencias
                 opciones_dict = {}
                 for idx, row in df_filtrado_unidades.iterrows():
                     inv = str(row.get(col_inv, "N/D"))
                     ser = str(row.get(col_ser, "N/D"))
                     mod = str(row.get("modelo", "N/D"))
                     ooad = str(row.get("ooad_estado", "N/D"))
-                    label = f"Inv: {inv}  |  Serie: {ser}  |  Modelo: {mod}  |  OOAD: {ooad}"
-                    if label in opciones_dict:
-                        label = f"{label} (Fila {idx})"
+                    label = f"[Fila {idx}] Inv: {inv}  |  Serie: {ser}  |  Modelo: {mod}  |  OOAD: {ooad}"
                     opciones_dict[label] = idx
                 
                 selected_label = st.selectbox(
-                    f"Seleccione la unidad deseada (Total encontradas: {len(opciones_dict)}):",
+                    f"Seleccione la unidad deseada ({len(opciones_dict)} disponibles en la lista):",
                     options=list(opciones_dict.keys()),
-                    key="selectbox_unidades_master"
+                    key="selectbox_unidades_master_v4"
                 )
                 
                 if selected_label:
@@ -349,13 +349,13 @@ if "Ficha Digital" in str(menu):
                     # -------------------------------------------------------------
                     # BOTÓN DE EDICIÓN CON ESTADO (ACTIVACIÓN POR BOTÓN)
                     # -------------------------------------------------------------
-                    edit_state_key = f"edit_active_{idx_seleccionado}"
+                    edit_state_key = f"edit_active_v4_{idx_seleccionado}"
                     if edit_state_key not in st.session_state:
                         st.session_state[edit_state_key] = False
                         
                     col_b1, col_b2 = st.columns([1, 4])
                     with col_b1:
-                        if st.button("✏️ Habilitar Edición", key=f"btn_toggle_edit_{idx_seleccionado}"):
+                        if st.button("✏️ Habilitar Edición", key=f"btn_toggle_edit_v4_{idx_seleccionado}"):
                             st.session_state[edit_state_key] = not st.session_state[edit_state_key]
                             st.rerun()
                     
@@ -367,7 +367,7 @@ if "Ficha Digital" in str(menu):
                     
                     # Si el botón está activado, se despliega el formulario de modificación
                     if st.session_state[edit_state_key]:
-                        with st.form(f"form_editar_unidad_activo_{idx_seleccionado}"):
+                        with st.form(f"form_editar_unidad_activo_v4_{idx_seleccionado}"):
                             st.markdown("##### 📝 Formulario de Actualización de Datos")
                             cols_form = st.columns(2)
                             idx_col = 0
@@ -378,7 +378,7 @@ if "Ficha Digital" in str(menu):
                                 val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
                                 
                                 with cols_form[idx_col % 2]:
-                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"input_edit_{col}_{idx_seleccionado}")
+                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"input_edit_v4_{col}_{idx_seleccionado}")
                                     
                                 idx_col += 1
                                 
@@ -400,7 +400,7 @@ if "Ficha Digital" in str(menu):
                     filtro_ficha = st.text_input(
                         "🔍 Buscar un dato específico dentro de esta ficha:",
                         placeholder="Escriba cualquier texto...",
-                        key="filtro_ficha_interna_master"
+                        key="filtro_ficha_interna_v4"
                     )
                     
                     data_detalle = []
@@ -415,7 +415,7 @@ if "Ficha Digital" in str(menu):
                     st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
                     
             else:
-                st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda ingresada en el padrón.")
+                st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda ingresada.")
         except Exception as e:
             st.error(f"⚠️ Error al renderizar la ficha digital: {e}")
     else:
