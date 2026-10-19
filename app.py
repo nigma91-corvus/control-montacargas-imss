@@ -135,7 +135,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 
 # ==========================================
-# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Matplotlib - Fondo Blanco)
+# MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA (Gráfica Nativa Streamlit)
 # ==========================================
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
@@ -174,28 +174,8 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     if "ooad_estado" in df_padron.columns:
         counts_ooad_full = df_padron["ooad_estado"].value_counts()
         
-        # Figura limpia en Matplotlib sobre fondo totalmente blanco
-        fig, ax = plt.subplots(figsize=(10, 4))
-        fig.patch.set_facecolor('#FFFFFF')
-        ax.set_facecolor('#FFFFFF')
-        
-        bars = ax.bar(counts_ooad_full.index, counts_ooad_full.values, color='#005A36')
-        
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color('#E5E7EB')
-        ax.spines['bottom'].set_color('#E5E7EB')
-        
-        plt.xticks(rotation=45, ha='right', fontsize=9, color='#1F2937')
-        plt.yticks(color='#1F2937')
-        plt.grid(axis='y', linestyle='--', alpha=0.3, color='#9CA3AF')
-        
-        # Valores sobre cada barra
-        for bar in bars:
-            yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.1, int(yval), ha='center', va='bottom', fontsize=8, color='#1F2937', fontweight='bold')
-            
-        st.pyplot(fig)
+        # Gráfica nativa integrada sin librerías externas
+        st.bar_chart(counts_ooad_full)
         
         with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
             df_summary = pd.DataFrame({
