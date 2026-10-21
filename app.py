@@ -423,10 +423,18 @@ import pandas as pd
 from datetime import date
 
 def render_modulo_4_cmms():
-    # Inyectar CSS personalizado para mejorar la visibilidad de pestañas y cajas de texto
+    # Inyectar CSS para forzar estilo claro y evitar problemas de contraste con el modo oscuro
     st.markdown("""
         <style>
-            /* Estilo y grosor para los títulos de las pestañas */
+            /* Forzar fondo claro y texto legible en los contenedores y formularios */
+            .stForm {
+                background-color: #f8fafc !important;
+                border: 1px solid #e2e8f0 !important;
+                padding: 20px !important;
+                border-radius: 10px !important;
+            }
+            
+            /* Títulos de las pestañas con alta visibilidad */
             .stTabs [data-baseweb="tab"] p {
                 font-size: 16px !important;
                 font-weight: 700 !important;
@@ -436,8 +444,14 @@ def render_modulo_4_cmms():
                 color: #2563eb !important;
             }
             
-            /* Forzar color de texto oscuro y visible al escribir en los inputs y text areas */
+            /* Forzar texto oscuro y legible al escribir en inputs y text areas */
             .stTextInput input, .stTextArea textarea {
+                color: #1f2937 !important;
+                background-color: #ffffff !important;
+            }
+            
+            /* Estilo general de textos descriptivos */
+            p, span, label {
                 color: #1f2937 !important;
             }
         </style>
@@ -539,11 +553,10 @@ def render_modulo_4_cmms():
                 for sede in sedes_seleccionadas:
                     info = catalogo_bloques[sede]
                     for eq in info["equipos"]:
-                        # Formato claro mostrando Sede, Inventario y Número de Serie
                         item_equipo = f"{sede} | Inv: {eq['inv']} | Serie: {eq['serie']} ({info['contrato']}) - Prog: {fecha_programada_lote}"
                         if item_equipo not in st.session_state.equipos_calendarizados:
                             st.session_state.equipos_calendarizados.append(item_equipo)
-                st.success(f"✅ Se registraron exitosamente los equipos de las sedes seleccionadas. Ya están listos en la Pestaña 2 con sus series.")
+                st.success(f"✅ Se registraron exitosamente los equipos con sus series. Ya están listos en la Pestaña 2.")
             elif submitted_lote:
                 st.warning("⚠️ Seleccione al menos una sede para continuar.")
 
