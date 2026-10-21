@@ -423,9 +423,10 @@ import pandas as pd
 from datetime import date
 
 def render_modulo_4_cmms():
-    # Inyectar CSS personalizado para mejorar la visibilidad y grosor de los títulos de las pestañas
+    # Inyectar CSS personalizado para mejorar la visibilidad de pestañas y cajas de texto
     st.markdown("""
         <style>
+            /* Estilo y grosor para los títulos de las pestañas */
             .stTabs [data-baseweb="tab"] p {
                 font-size: 16px !important;
                 font-weight: 700 !important;
@@ -433,6 +434,11 @@ def render_modulo_4_cmms():
             }
             .stTabs [data-baseweb="tab"][aria-selected="true"] p {
                 color: #2563eb !important;
+            }
+            
+            /* Forzar color de texto oscuro y visible al escribir en los inputs y text areas */
+            .stTextInput input, .stTextArea textarea {
+                color: #1f2937 !important;
             }
         </style>
     """, unsafe_allow_html=True)
