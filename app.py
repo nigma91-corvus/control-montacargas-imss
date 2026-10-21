@@ -417,6 +417,7 @@ if "Ficha Digital" in str(menu):
     else:
         st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
         import streamlit as st
+
 import pandas as pd
 from datetime import date
 
@@ -426,13 +427,12 @@ def render_modulo_4_cmms():
 
     # Pestañas principales del módulo
     tab1, tab2, tab3 = st.tabs([
-        "📂 1. Configuración y Programación Inteligente", 
-        "📅 2. Calendario Activo & Órdenes de Trabajo", 
+        "📂 1. Captura Rápida en Lote (Configuración)", 
+        "📅 2. Calendario Activo & OTs (Operación Independiente)", 
         "⚠️ 3. Inconclusos y Histórico (Hacia Atrás)"
     ])
 
-    # Base de datos de bloques preconfigurada del Excel (Etapas 2 y 3)
-    # Estructura: Sede -> {"contrato": "...", "equipos": X, "etapa": "..."}
+    # Catálogo maestro de bloques basado en los 53 bloques del Excel (Etapas 2 y 3)
     catalogo_bloques = {
         # Contrato J1954
         "Centrales (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
@@ -493,108 +493,110 @@ def render_modulo_4_cmms():
     }
 
     # ==========================================
-    # PESTAÑA 1: CONFIGURACIÓN Y PROGRAMACIÓN INTELIGENTE
+    # PESTAÑA 1: CAPTURA RÁPIDA EN LOTE
     # ==========================================
     with tab1:
-        st.subheader("Configuración y Selección de Programación")
+        st.subheader("Configuración y Registro Rápido por Lotes")
         
-        etapa_seleccionada = st.selectbox(
-            "Seleccione la Etapa Activa:",
+        etapa_activa = st.selectbox(
+            "Seleccione la Etapa a Registrar:",
             ["Etapa 2 y 3 (Activas Nov 2026)", "Etapa 1 (Histórico / Retrospectivo)", "Etapa 3 (Futura)"]
         )
         
-        st.markdown("### Programar Fecha de Bloque")
-        
-        with st.form("form_programacion_inteligente"):
-            # Seleccionar Sede de la lista predefinida
-            sede_seleccionada = st.selectbox("Seleccione la OOAD / Sede del Calendario", list(catalogo_bloques.keys()))
+        with st.form("form_captura_lote"):
+            st.markdown("### Seleccione las OOADs / Sedes a dar de alta simultáneamente")
+            sedes_seleccionadas = st.multiselect(
+                "Listado de Sedes Disponibles:",
+                options=list(catalogo_bloques.keys())
+            )
             
-            # Autodetección de contrato y equipos
-            datos_bloque = catalogo_bloques[sede_seleccionada]
-            contrato_auto = datos_bloque["contrato"]
-            equipos_auto = datos_bloque["equipos"]
+            if sedes_seleccionadas:
+                total_equipos_lote = sum(catalogo_bloques[s]["equipos"] for s in sedes_seleccionadas)
+                contratos_involucrados = list(set(catalogo_bloques[s]["contrato"] for s in sedes_seleccionadas))
+                
+                st.info(
+                    f"📊 **Resumen del Lote Seleccionado:**\n"
+                    f"- **Sedes a registrar:** {len(sedes_seleccionadas)}\n"
+                    f"- **Total de montacargas involucrados:** {total_equipos_lote}\n"
+                    f"- **Contrato(s):** {', '.join(contratos_involucrados)}"
+                )
             
-            # Mostrar al usuario lo que el sistema detectó automáticamente
-            st.info(f"📌 **Autodetección:** Contrato asignado: **{contrato_auto}** | Cantidad de equipos en bloque: **{equipos_auto} montacargas**")
-            
-            fecha_programada_teorica = st.date_input("Fecha Programada Oficial (Calendario Teórico)", value=date.today())
-            
-            submitted_prog = st.form_submit_button("Guardar Fecha en Calendario")
-            if submitted_prog:
-                st.success(f"✅ Bloque **{sede_seleccionada}** ({equipos_auto} equipos bajo contrato {contrato_auto}) programado para el {fecha_programada_teorica}.")
+            submitted_lote = st.form_submit_button("Guardar Lote en Base de Datos")
+            if submitted_lote and sedes_seleccionadas:
+                st.success(f"✅ Se registraron exitosamente {len(sedes_seleccionadas)} bloques ({total_equipos_lote} equipos en total). Ya están listos para su operación independiente.")
+            elif submitted_lote:
+                st.warning("⚠️ Seleccione al menos una sede para continuar.")
 
     # ==========================================
-    # PESTAÑA 2: CALENDARIO ACTIVO & ÓRDENES DE TRABAJO
+    # PESTAÑA 2: CALENDARIO ACTIVO & OTs (INDEPENDIENTE)
     # ==========================================
     with tab2:
-        st.subheader("Generación de Órdenes de Trabajo (OT) y Cierre de Servicios")
+        st.subheader("Gestión Operativa Individual (Órdenes de Trabajo)")
+        st.markdown("Cada sede y unidad se gestiona de forma totalmente autónoma.")
         
-        servicio_seleccionado = st.selectbox(
-            "Seleccione servicio programado para ejecutar:",
+        servicio_activo = st.selectbox(
+            "Seleccione el bloque / sede a ejecutar:",
             [
-                "CDMX Sur (J1954) - 4 Equipos | Prog: 2026-11-04",
-                "Hidalgo (J2523) - 2 Equipos | Prog: 2026-11-05",
-                "Querétaro (J1954) - 2 Equipos | Prog: 2026-11-06"
+                "CDMX Sur (J1954) - 4 Equipos",
+                "Hidalgo (J2523) - 2 Equipos",
+                "Chiapas (J1954) - 4 Equipos",
+                "Baja California Norte (J1954) - 2 Equipos"
             ]
         )
         
-        with st.form("form_cierre_ot"):
-            st.markdown("### Ejecución y Cierre de Servicio")
-            
-            col_a, col_b = st.columns(2)
-            with col_a:
-                fecha_real_cierre = st.date_input("Fecha Real de Ejecución (Cierre Físico)", value=date.today())
-                tecnico_responsable = st.text_input("Técnico Responsable / Taller")
-            
-            with col_b:
-                estatus_servicio = st.selectbox(
+        with st.form("form_ejecucion_independiente"):
+            col_1, col_2 = st.columns(2)
+            with col_1:
+                fecha_real = st.date_input("Fecha Real de Cierre Físico", value=date.today())
+                tecnico = st.text_input("Técnico / Proveedor Responsable")
+            with col_2:
+                estatus = st.selectbox(
                     "Estatus del Servicio",
                     ["Concluido", "Inconcluso (Requiere seguimiento)", "En Espera de Refacción"]
                 )
             
-            observaciones = st.text_area("Diagnóstico, Observaciones o Fallas Detectadas")
-            archivo_pdf = st.file_uploader("Subir Orden de Trabajo / Evidencia PDF (Sincronizado a Supabase Storage)", type=["pdf", "png", "jpg"])
+            observaciones_ot = st.text_area("Diagnóstico y Observaciones Específicas de este Bloque")
+            evidencia_pdf = st.file_uploader("Cargar Orden de Trabajo en PDF (Sincronizado a Supabase Storage)", type=["pdf", "png", "jpg"])
             
-            submitted_ot = st.form_submit_button("Registrar Cierre de Servicio")
-            
-            if submitted_ot:
-                if estatus_servicio == "Inconcluso":
-                    st.warning("⚠️ Servicio registrado como **Inconcluso**. El sistema aplicará el candado y bloqueará el siguiente servicio de esta unidad hasta su corrección.")
+            submitted_ejecucion = st.form_submit_button("Registrar Cierre Individual")
+            if submitted_ejecucion:
+                if estatus == "Inconcluso":
+                    st.warning("⚠️ Servicio registrado como **Inconcluso**. Se aplica el candado operativo para este bloque específico sin afectar el resto.")
                 else:
-                    st.success("✅ Servicio concluido correctamente. Fechas y PDF sincronizados en línea.")
+                    st.success("✅ Servicio concluido y registrado con éxito. Bitácora actualizada.")
 
     # ==========================================
     # PESTAÑA 3: INCONCLUSOS Y HISTÓRICO
     # ==========================================
     with tab3:
-        st.subheader("Control de Servicios Inconclusos y Bitácora Retrospectiva")
+        st.subheader("Control de Inconclusos y Bitácora Retrospectiva")
         
-        sub_tab1, sub_tab2 = st.tabs(["🔴 Bandeja de Inconclusos", "⏪ Captura Histórica ('Hacia Atrás')"])
+        sub_t1, sub_t2 = st.tabs(["🔴 Bandeja de Inconclusos", "⏪ Captura Histórica ('Hacia Atrás')"])
         
-        with sub_tab1:
-            st.markdown("### Unidades Bloqueadas por Servicios Inconclusos")
-            df_inconclusos = pd.DataFrame({
+        with sub_t1:
+            st.markdown("### Unidades con Bloqueo Activo por Servicios Inconclusos")
+            df_inc = pd.DataFrame({
                 "Inventario": ["MTC-045", "MTC-088"],
                 "OOAD": ["Hidalgo", "Querétaro"],
-                "Motivo": ["Falta de refacción hidráulica", "Pendiente de ajuste eléctrico"],
-                "Estatus": ["Bloqueado (Anti-Falsos Positivos)", "Bloqueado"]
+                "Motivo": ["Falta de refacción hidráulica", "Pendiente eléctrico"],
+                "Estatus": ["Bloqueado", "Bloqueado"]
             })
-            st.dataframe(df_inconclusos, use_container_width=True)
+            st.dataframe(df_inc, use_container_width=True)
             
-            inv_liberar = st.text_input("Número de inventario a solventar y desbloquear:")
-            if st.button("Liberar Unidad"):
-                st.success(f"Unidad {inv_liberar} desbloqueada exitosamente.")
+            inv_liberar = st.text_input("Número de inventario o bloque a liberar:")
+            if st.button("Aplicar Corrección y Desbloquear Sede"):
+                st.success(f"Bloque/Unidad {inv_liberar} liberado y listo para el siguiente servicio.")
                 
-        with sub_tab2:
+        with sub_t2:
             st.markdown("### Ventana de Captura Histórica (Etapa 1 y Pasados)")
-            st.info("Espacio para alimentar los antecedentes históricos de la Etapa 1 en tiempos muertos.")
-            with st.form("form_hist"):
-                st.text_input("Número de Inventario")
+            st.info("Utilice este espacio en tiempos muertos para alimentar los antecedentes históricos de la Etapa 1.")
+            with st.form("form_hist_etapa1"):
+                st.text_input("Número de Inventario / Sede")
                 st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)"])
-                st.date_input("Fecha de Realización Histórica")
-                st.text_area("Observaciones del antecedente")
+                st.date_input("Fecha Real del Antecedente")
+                st.text_area("Observaciones del antecedente histórico")
                 if st.form_submit_button("Guardar en Histórico"):
-                    st.success("Registro histórico guardado.")
+                    st.success("Antecedente histórico guardado correctamente.")
 
 if __name__ == "__main__":
     render_modulo_4_cmms()
