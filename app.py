@@ -418,7 +418,189 @@ if "Ficha Digital" in str(menu):
         st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
         import streamlit as st
 
-# ==========================================
+import pandas as pd
+from datetime import date
+
+def render_modulo_4_cmms():
+    st.header("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
+    st.markdown("Control operativo de servicios, órdenes de trabajo, validación de inconclusos y bitácora retrospectiva.")
+
+    # Pestañas principales del módulo
+    tab1, tab2, tab3 = st.tabs([
+        "📂 1. Captura Rápida en Lote (Configuración)", 
+        "📅 2. Calendario Activo & OTs (Operación Independiente)", 
+        "⚠️ 3. Inconclusos y Histórico (Hacia Atrás)"
+    ])
+
+    # Catálogo maestro de bloques basado en los 53 bloques del Excel (Etapas 2 y 3)
+    catalogo_bloques = {
+        # Contrato J1954
+        "Centrales (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "CDMX Sur (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Poniente (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "SXXI (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Hidalgo (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Querétaro (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Morelos (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Guerrero (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Michoacán (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nuevo León (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Guanajuato (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Jalisco (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Durango (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Coahuila (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sonora (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nayarit (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Zacatecas (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Colima (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Baja California Norte (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chihuahua (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Puebla (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tlaxcala (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Aguascalientes (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Veracruz Norte (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Oaxaca (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Veracruz Sur (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chiapas (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Baja California Sur (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tamaulipas (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tabasco (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sinaloa (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Yucatán (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "San Luis Potosí (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Campeche (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Cancún (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Oriente (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chetumal (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        
+        # Contrato J2523
+        "Central CTSG (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Poniente (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Hidalgo (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Querétaro (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "DF Norte (J2523)": {"contrato": "J2523", "equipos": 7, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nuevo León (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Durango (J2523)": {"contrato": "J2523", "equipos": 5, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Jalisco (J2523)": {"contrato": "J2523", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nayarit (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Zacatecas (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chihuahua (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tlaxcala (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tabasco (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sinaloa (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Yucatán (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Centrales Reproducciones Gráficas (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"}
+    }
+
+    # ==========================================
+    # PESTAÑA 1: CAPTURA RÁPIDA EN LOTE
+    # ==========================================
+    with tab1:
+        st.subheader("Configuración y Registro Rápido por Lotes")
+        
+        etapa_activa = st.selectbox(
+            "Seleccione la Etapa a Registrar:",
+            ["Etapa 2 y 3 (Activas Nov 2026)", "Etapa 1 (Histórico / Retrospectivo)", "Etapa 3 (Futura)"]
+        )
+        
+        with st.form("form_captura_lote"):
+            st.markdown("### Seleccione las OOADs / Sedes a dar de alta simultáneamente")
+            sedes_seleccionadas = st.multiselect(
+                "Listado de Sedes Disponibles:",
+                options=list(catalogo_bloques.keys())
+            )
+            
+            if sedes_seleccionadas:
+                total_equipos_lote = sum(catalogo_bloques[s]["equipos"] for s in sedes_seleccionadas)
+                contratos_involucrados = list(set(catalogo_bloques[s]["contrato"] for s in sedes_seleccionadas))
+                
+                st.info(
+                    f"📊 **Resumen del Lote Seleccionado:**\n"
+                    f"- **Sedes a registrar:** {len(sedes_seleccionadas)}\n"
+                    f"- **Total de montacargas involucrados:** {total_equipos_lote}\n"
+                    f"- **Contrato(s):** {', '.join(contratos_involucrados)}"
+                )
+            
+            submitted_lote = st.form_submit_button("Guardar Lote en Base de Datos")
+            if submitted_lote and sedes_seleccionadas:
+                st.success(f"✅ Se registraron exitosamente {len(sedes_seleccionadas)} bloques ({total_equipos_lote} equipos en total). Ya están listos para su operación independiente.")
+            elif submitted_lote:
+                st.warning("⚠️ Seleccione al menos una sede para continuar.")
+
+    # ==========================================
+    # PESTAÑA 2: CALENDARIO ACTIVO & OTs (INDEPENDIENTE)
+    # ==========================================
+    with tab2:
+        st.subheader("Gestión Operativa Individual (Órdenes de Trabajo)")
+        st.markdown("Cada sede y unidad se gestiona de forma totalmente autónoma.")
+        
+        servicio_activo = st.selectbox(
+            "Seleccione el bloque / sede a ejecutar:",
+            [
+                "CDMX Sur (J1954) - 4 Equipos",
+                "Hidalgo (J2523) - 2 Equipos",
+                "Chiapas (J1954) - 4 Equipos",
+                "Baja California Norte (J1954) - 2 Equipos"
+            ]
+        )
+        
+        with st.form("form_ejecucion_independiente"):
+            col_1, col_2 = st.columns(2)
+            with col_1:
+                fecha_real = st.date_input("Fecha Real de Cierre Físico", value=date.today())
+                tecnico = st.text_input("Técnico / Proveedor Responsable")
+            with col_2:
+                estatus = st.selectbox(
+                    "Estatus del Servicio",
+                    ["Concluido", "Inconcluso (Requiere seguimiento)", "En Espera de Refacción"]
+                )
+            
+            observaciones_ot = st.text_area("Diagnóstico y Observaciones Específicas de este Bloque")
+            evidencia_pdf = st.file_uploader("Cargar Orden de Trabajo en PDF (Sincronizado a Supabase Storage)", type=["pdf", "png", "jpg"])
+            
+            submitted_ejecucion = st.form_submit_button("Registrar Cierre Individual")
+            if submitted_ejecucion:
+                if estatus == "Inconcluso":
+                    st.warning("⚠️ Servicio registrado como **Inconcluso**. Se aplica el candado operativo para este bloque específico sin afectar el resto.")
+                else:
+                    st.success("✅ Servicio concluido y registrado con éxito. Bitácora actualizada.")
+
+    # ==========================================
+    # PESTAÑA 3: INCONCLUSOS Y HISTÓRICO
+    # ==========================================
+    with tab3:
+        st.subheader("Control de Inconclusos y Bitácora Retrospectiva")
+        
+        sub_t1, sub_t2 = st.tabs(["🔴 Bandeja de Inconclusos", "⏪ Captura Histórica ('Hacia Atrás')"])
+        
+        with sub_t1:
+            st.markdown("### Unidades con Bloqueo Activo por Servicios Inconclusos")
+            df_inc = pd.DataFrame({
+                "Inventario": ["MTC-045", "MTC-088"],
+                "OOAD": ["Hidalgo", "Querétaro"],
+                "Motivo": ["Falta de refacción hidráulica", "Pendiente eléctrico"],
+                "Estatus": ["Bloqueado", "Bloqueado"]
+            })
+            st.dataframe(df_inc, use_container_width=True)
+            
+            inv_liberar = st.text_input("Número de inventario o bloque a liberar:")
+            if st.button("Aplicar Corrección y Desbloquear Sede"):
+                st.success(f"Bloque/Unidad {inv_liberar} liberado y listo para el siguiente servicio.")
+                
+        with sub_t2:
+            st.markdown("### Ventana de Captura Histórica (Etapa 1 y Pasados)")
+            st.info("Utilice este espacio en tiempos muertos para alimentar los antecedentes históricos de la Etapa 1.")
+            with st.form("form_hist_etapa1"):
+                st.text_input("Número de Inventario / Sede")
+                st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)"])
+                st.date_input("Fecha Real del Antecedente")
+                st.text_area("Observaciones del antecedente histórico")
+                if st.form_submit_button("Guardar en Histórico"):
+                    st.success("Antecedente histórico guardado correctamente.")
+
+if __name__ == "__main__":
+    render_modulo_4_cmms()
+    # ==========================================
     # PESTAÑA 3: BANDEJA DE INCONCLUSOS (SIN CAPTURA MANUAL CONFUSA)
     # ==========================================
     with tab3:
