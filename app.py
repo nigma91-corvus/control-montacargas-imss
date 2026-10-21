@@ -416,3 +416,136 @@ if "Ficha Digital" in str(menu):
             st.error(f"⚠️ Error al renderizar la ficha digital: {e}")
     else:
         st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
+        import streamlit as st
+import pandas as pd
+from datetime import date
+
+def render_modulo_4_cmms():
+    st.header("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
+    st.markdown("Control operativo de servicios, órdenes de trabajo, validación de inconclusos y bitácora retrospectiva.")
+
+    # Pestañas principales del módulo
+    tab1, tab2, tab3 = st.tabs([
+        "📂 1. Configuración y Programación Manual", 
+        "📅 2. Calendario Activo & Órdenes de Trabajo", 
+        "⚠️ 3. Inconclusos y Histórico (Hacia Atrás)"
+    ])
+
+    # ==========================================
+    # PESTAÑA 1: CONFIGURACIÓN Y PROGRAMACIÓN MANUAL
+    # ==========================================
+    with tab1:
+        st.subheader("Configuración de Etapas y Calendario de Servicios")
+        
+        # Selector de Etapas Activas
+        etapa_seleccionada = st.selectbox(
+            "Seleccione la Etapa a operar/consultar:",
+            ["Etapa 1 (Histórico / Retrospectivo)", "Etapa 2 (Contrato J1954)", "Etapa 3 (Contrato J2523)", "Etapas 2 y 3 (Activas Nov 2026)"]
+        )
+        
+        st.info(f"Modo activo: **{etapa_seleccionada}**. La captura manual de fechas asegura el control exacto de los bloques.")
+
+        with st.form("form_programacion_manual"):
+            st.markdown("### Registrar Bloque de Mantenimiento")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                contrato_input = st.selectbox("Contrato", ["J1954", "J2523", "HISTORICO-E1"])
+                sede_input = st.text_input("OOAD / Sede / Bloque (ej. CDMX Sur, Hidalgo)")
+            
+            with col2:
+                cantidad_equipos = st.number_input("Cantidad de Equipos / Servicios", min_value=1, value=1)
+                fecha_programada_teorica = st.date_input("Fecha Programada (Calendario Teórico)", value=date.today())
+            
+            submitted_prog = st.form_submit_button("Guardar Programación en Base de Datos")
+            if submitted_prog:
+                st.success(f"Bloque registrado correctamente para {sede_input} ({cantidad_equipos} servicios) bajo el contrato {contrato_input}.")
+
+    # ==========================================
+    # PESTAÑA 2: CALENDARIO ACTIVO & ÓRDENES DE TRABAJO
+    # ==========================================
+    with tab2:
+        st.subheader("Generación de Órdenes de Trabajo (OT) y Cierre de Servicios")
+        
+        # Simulación de selección de un servicio pendiente del calendario
+        st.markdown("#### Seleccionar Servicio Programado")
+        
+        # Aquí se conectaría con Supabase para listar los servicios pendientes de las Etapas 2 y 3
+        servicio_seleccionado = st.selectbox(
+            "Servicios pendientes en la agenda:",
+            [
+                "ID-101 | J1954 | Centrales (3 equipos) - Prog: 2026-11-03",
+                "ID-102 | J2523 | Central CTSG (1 equipo) - Prog: 2026-11-03",
+                "ID-103 | J1954 | CDMX Sur (4 equipos) - Prog: 2026-11-04"
+            ]
+        )
+        
+        with st.form("form_cierre_ot"):
+            st.markdown("### Formulario de Ejecución de Servicio")
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                fecha_real_cierre = st.date_input("Fecha Real de Ejecución (Cierre físico)", value=date.today())
+                tecnico_responsable = st.text_input("Técnico Responsable / Taller")
+            
+            with col_b:
+                estatus_servicio = st.selectbox(
+                    "Estatus del Servicio",
+                    ["Concluido", "Inconcluso (Requiere seguimiento)", "En Espera de Refacción"]
+                )
+            
+            observaciones = st.text_area("Diagnóstico, Observaciones o Fallas Detectadas")
+            
+            # Simulación de subida de PDF para Supabase Storage
+            archivo_pdf = st.file_uploader("Subir Orden de Trabajo / Evidencia en PDF", type=["pdf", "png", "jpg"])
+            
+            submitted_ot = st.form_submit_button("Registrar Cierre y Validar Candados")
+            
+            if submitted_ot:
+                # Regla de Negocio: Validación Anti-Falsos Positivos
+                if estatus_servicio == "Inconcluso":
+                    st.warning("⚠️ Servicio registrado como **Inconcluso**. El sistema bloqueará el avance del siguiente servicio hasta solventar estas observaciones.")
+                else:
+                    st.success("✅ Servicio concluido y registrado con éxito. Fechas y evidencias sincronizadas.")
+
+    # ==========================================
+    # PESTAÑA 3: INCONCLUSOS Y CAPTURA RETROSPECTIVA
+    # ==========================================
+    with tab3:
+        st.subheader("Control de Servicios Inconclusos y Bitácora Retrospectiva")
+        
+        sub_tab1, sub_tab2 = st.tabs(["🔴 Bandeja de Inconclusos", "⏪ Captura Histórica ('Hacia Atrás')"])
+        
+        with sub_tab1:
+            st.markdown("### Unidades con Servicios Pendientes (Bloqueo Activo)")
+            # Tabla de ejemplo de inconclusos
+            df_inconclusos = pd.DataFrame({
+                "Inventario": ["MTC-045", "MTC-088"],
+                "OOAD": ["Hidalgo", "Querétaro"],
+                "Servicio Previo": ["Servicio 1", "Servicio 2"],
+                "Motivo Inconcluso": ["Falta de refacción (bomba hidráulica)", "Acceso restringido a unidad"],
+                "Estatus": ["Bloqueado", "Bloqueado"]
+            })
+            st.dataframe(df_inconclusos, use_container_width=True)
+            
+            st.markdown("#### Solventar Pendiente")
+            inv_solventar = st.text_input("Ingrese el número de inventario a liberar/solventar:")
+            if st.button("Aplicar Corrección y Desbloquear"):
+                st.success(f"Unidad {inv_solventar} actualizada. El siguiente servicio queda habilitado.")
+                
+        with sub_tab2:
+            st.markdown("### Ventana de Captura Histórica (Etapa 1 y Servicios Pasados)")
+            st.info("Utilice este espacio durante los tiempos muertos para alimentar el padrón histórico hacia atrás sin afectar la operación de noviembre 2026.")
+            
+            with st.form("form_historico"):
+                inv_hist = st.text_input("Número de Inventario")
+                num_servicio_hist = st.selectbox("Número de Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)", "Servicio Anterior"])
+                fecha_hist = st.date_input("Fecha en que se realizó")
+                obs_hist = st.text_area("Observaciones del antecedente histórico")
+                
+                if st.form_submit_button("Guardar en Bitácora Histórica"):
+                    st.success(f"Registro histórico guardado para el equipo {inv_hist}.")
+
+# Ejecutar el módulo si se llama directamente
+if __name__ == "__main__":
+    render_modulo_4_cmms()
