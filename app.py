@@ -426,40 +426,102 @@ def render_modulo_4_cmms():
 
     # Pestañas principales del módulo
     tab1, tab2, tab3 = st.tabs([
-        "📂 1. Configuración y Programación Manual", 
+        "📂 1. Configuración y Programación Inteligente", 
         "📅 2. Calendario Activo & Órdenes de Trabajo", 
         "⚠️ 3. Inconclusos y Histórico (Hacia Atrás)"
     ])
 
+    # Base de datos de bloques preconfigurada del Excel (Etapas 2 y 3)
+    # Estructura: Sede -> {"contrato": "...", "equipos": X, "etapa": "..."}
+    catalogo_bloques = {
+        # Contrato J1954
+        "Centrales (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "CDMX Sur (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Poniente (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "SXXI (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Hidalgo (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Querétaro (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Morelos (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Guerrero (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Michoacán (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nuevo León (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Guanajuato (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Jalisco (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Durango (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Coahuila (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sonora (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nayarit (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Zacatecas (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Colima (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Baja California Norte (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chihuahua (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Puebla (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tlaxcala (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Aguascalientes (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Veracruz Norte (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Oaxaca (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Veracruz Sur (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chiapas (J1954)": {"contrato": "J1954", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Baja California Sur (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tamaulipas (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tabasco (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sinaloa (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Yucatán (J1954)": {"contrato": "J1954", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "San Luis Potosí (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Campeche (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Cancún (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Oriente (J1954)": {"contrato": "J1954", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chetumal (J1954)": {"contrato": "J1954", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        
+        # Contrato J2523
+        "Central CTSG (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Poniente (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Hidalgo (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Querétaro (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "DF Norte (J2523)": {"contrato": "J2523", "equipos": 7, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nuevo León (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Durango (J2523)": {"contrato": "J2523", "equipos": 5, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Jalisco (J2523)": {"contrato": "J2523", "equipos": 4, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Nayarit (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Zacatecas (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Chihuahua (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tlaxcala (J2523)": {"contrato": "J2523", "equipos": 1, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Tabasco (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Sinaloa (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Yucatán (J2523)": {"contrato": "J2523", "equipos": 2, "etapa": "Etapa 2 y 3 (Nov 2026)"},
+        "Centrales Reproducciones Gráficas (J2523)": {"contrato": "J2523", "equipos": 3, "etapa": "Etapa 2 y 3 (Nov 2026)"}
+    }
+
     # ==========================================
-    # PESTAÑA 1: CONFIGURACIÓN Y PROGRAMACIÓN MANUAL
+    # PESTAÑA 1: CONFIGURACIÓN Y PROGRAMACIÓN INTELIGENTE
     # ==========================================
     with tab1:
-        st.subheader("Configuración de Etapas y Calendario de Servicios")
+        st.subheader("Configuración y Selección de Programación")
         
-        # Selector de Etapas Activas
         etapa_seleccionada = st.selectbox(
-            "Seleccione la Etapa a operar/consultar:",
-            ["Etapa 1 (Histórico / Retrospectivo)", "Etapa 2 (Contrato J1954)", "Etapa 3 (Contrato J2523)", "Etapas 2 y 3 (Activas Nov 2026)"]
+            "Seleccione la Etapa Activa:",
+            ["Etapa 2 y 3 (Activas Nov 2026)", "Etapa 1 (Histórico / Retrospectivo)", "Etapa 3 (Futura)"]
         )
         
-        st.info(f"Modo activo: **{etapa_seleccionada}**. La captura manual de fechas asegura el control exacto de los bloques.")
-
-        with st.form("form_programacion_manual"):
-            st.markdown("### Registrar Bloque de Mantenimiento")
-            col1, col2 = st.columns(2)
+        st.markdown("### Programar Fecha de Bloque")
+        
+        with st.form("form_programacion_inteligente"):
+            # Seleccionar Sede de la lista predefinida
+            sede_seleccionada = st.selectbox("Seleccione la OOAD / Sede del Calendario", list(catalogo_bloques.keys()))
             
-            with col1:
-                contrato_input = st.selectbox("Contrato", ["J1954", "J2523", "HISTORICO-E1"])
-                sede_input = st.text_input("OOAD / Sede / Bloque (ej. CDMX Sur, Hidalgo)")
+            # Autodetección de contrato y equipos
+            datos_bloque = catalogo_bloques[sede_seleccionada]
+            contrato_auto = datos_bloque["contrato"]
+            equipos_auto = datos_bloque["equipos"]
             
-            with col2:
-                cantidad_equipos = st.number_input("Cantidad de Equipos / Servicios", min_value=1, value=1)
-                fecha_programada_teorica = st.date_input("Fecha Programada (Calendario Teórico)", value=date.today())
+            # Mostrar al usuario lo que el sistema detectó automáticamente
+            st.info(f"📌 **Autodetección:** Contrato asignado: **{contrato_auto}** | Cantidad de equipos en bloque: **{equipos_auto} montacargas**")
             
-            submitted_prog = st.form_submit_button("Guardar Programación en Base de Datos")
+            fecha_programada_teorica = st.date_input("Fecha Programada Oficial (Calendario Teórico)", value=date.today())
+            
+            submitted_prog = st.form_submit_button("Guardar Fecha en Calendario")
             if submitted_prog:
-                st.success(f"Bloque registrado correctamente para {sede_input} ({cantidad_equipos} servicios) bajo el contrato {contrato_input}.")
+                st.success(f"✅ Bloque **{sede_seleccionada}** ({equipos_auto} equipos bajo contrato {contrato_auto}) programado para el {fecha_programada_teorica}.")
 
     # ==========================================
     # PESTAÑA 2: CALENDARIO ACTIVO & ÓRDENES DE TRABAJO
@@ -467,25 +529,21 @@ def render_modulo_4_cmms():
     with tab2:
         st.subheader("Generación de Órdenes de Trabajo (OT) y Cierre de Servicios")
         
-        # Simulación de selección de un servicio pendiente del calendario
-        st.markdown("#### Seleccionar Servicio Programado")
-        
-        # Aquí se conectaría con Supabase para listar los servicios pendientes de las Etapas 2 y 3
         servicio_seleccionado = st.selectbox(
-            "Servicios pendientes en la agenda:",
+            "Seleccione servicio programado para ejecutar:",
             [
-                "ID-101 | J1954 | Centrales (3 equipos) - Prog: 2026-11-03",
-                "ID-102 | J2523 | Central CTSG (1 equipo) - Prog: 2026-11-03",
-                "ID-103 | J1954 | CDMX Sur (4 equipos) - Prog: 2026-11-04"
+                "CDMX Sur (J1954) - 4 Equipos | Prog: 2026-11-04",
+                "Hidalgo (J2523) - 2 Equipos | Prog: 2026-11-05",
+                "Querétaro (J1954) - 2 Equipos | Prog: 2026-11-06"
             ]
         )
         
         with st.form("form_cierre_ot"):
-            st.markdown("### Formulario de Ejecución de Servicio")
+            st.markdown("### Ejecución y Cierre de Servicio")
             
             col_a, col_b = st.columns(2)
             with col_a:
-                fecha_real_cierre = st.date_input("Fecha Real de Ejecución (Cierre físico)", value=date.today())
+                fecha_real_cierre = st.date_input("Fecha Real de Ejecución (Cierre Físico)", value=date.today())
                 tecnico_responsable = st.text_input("Técnico Responsable / Taller")
             
             with col_b:
@@ -495,21 +553,18 @@ def render_modulo_4_cmms():
                 )
             
             observaciones = st.text_area("Diagnóstico, Observaciones o Fallas Detectadas")
+            archivo_pdf = st.file_uploader("Subir Orden de Trabajo / Evidencia PDF (Sincronizado a Supabase Storage)", type=["pdf", "png", "jpg"])
             
-            # Simulación de subida de PDF para Supabase Storage
-            archivo_pdf = st.file_uploader("Subir Orden de Trabajo / Evidencia en PDF", type=["pdf", "png", "jpg"])
-            
-            submitted_ot = st.form_submit_button("Registrar Cierre y Validar Candados")
+            submitted_ot = st.form_submit_button("Registrar Cierre de Servicio")
             
             if submitted_ot:
-                # Regla de Negocio: Validación Anti-Falsos Positivos
                 if estatus_servicio == "Inconcluso":
-                    st.warning("⚠️ Servicio registrado como **Inconcluso**. El sistema bloqueará el avance del siguiente servicio hasta solventar estas observaciones.")
+                    st.warning("⚠️ Servicio registrado como **Inconcluso**. El sistema aplicará el candado y bloqueará el siguiente servicio de esta unidad hasta su corrección.")
                 else:
-                    st.success("✅ Servicio concluido y registrado con éxito. Fechas y evidencias sincronizadas.")
+                    st.success("✅ Servicio concluido correctamente. Fechas y PDF sincronizados en línea.")
 
     # ==========================================
-    # PESTAÑA 3: INCONCLUSOS Y CAPTURA RETROSPECTIVA
+    # PESTAÑA 3: INCONCLUSOS Y HISTÓRICO
     # ==========================================
     with tab3:
         st.subheader("Control de Servicios Inconclusos y Bitácora Retrospectiva")
@@ -517,35 +572,29 @@ def render_modulo_4_cmms():
         sub_tab1, sub_tab2 = st.tabs(["🔴 Bandeja de Inconclusos", "⏪ Captura Histórica ('Hacia Atrás')"])
         
         with sub_tab1:
-            st.markdown("### Unidades con Servicios Pendientes (Bloqueo Activo)")
-            # Tabla de ejemplo de inconclusos
+            st.markdown("### Unidades Bloqueadas por Servicios Inconclusos")
             df_inconclusos = pd.DataFrame({
                 "Inventario": ["MTC-045", "MTC-088"],
                 "OOAD": ["Hidalgo", "Querétaro"],
-                "Servicio Previo": ["Servicio 1", "Servicio 2"],
-                "Motivo Inconcluso": ["Falta de refacción (bomba hidráulica)", "Acceso restringido a unidad"],
-                "Estatus": ["Bloqueado", "Bloqueado"]
+                "Motivo": ["Falta de refacción hidráulica", "Pendiente de ajuste eléctrico"],
+                "Estatus": ["Bloqueado (Anti-Falsos Positivos)", "Bloqueado"]
             })
             st.dataframe(df_inconclusos, use_container_width=True)
             
-            st.markdown("#### Solventar Pendiente")
-            inv_solventar = st.text_input("Ingrese el número de inventario a liberar/solventar:")
-            if st.button("Aplicar Corrección y Desbloquear"):
-                st.success(f"Unidad {inv_solventar} actualizada. El siguiente servicio queda habilitado.")
+            inv_liberar = st.text_input("Número de inventario a solventar y desbloquear:")
+            if st.button("Liberar Unidad"):
+                st.success(f"Unidad {inv_liberar} desbloqueada exitosamente.")
                 
         with sub_tab2:
-            st.markdown("### Ventana de Captura Histórica (Etapa 1 y Servicios Pasados)")
-            st.info("Utilice este espacio durante los tiempos muertos para alimentar el padrón histórico hacia atrás sin afectar la operación de noviembre 2026.")
-            
-            with st.form("form_historico"):
-                inv_hist = st.text_input("Número de Inventario")
-                num_servicio_hist = st.selectbox("Número de Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)", "Servicio Anterior"])
-                fecha_hist = st.date_input("Fecha en que se realizó")
-                obs_hist = st.text_area("Observaciones del antecedente histórico")
-                
-                if st.form_submit_button("Guardar en Bitácora Histórica"):
-                    st.success(f"Registro histórico guardado para el equipo {inv_hist}.")
+            st.markdown("### Ventana de Captura Histórica (Etapa 1 y Pasados)")
+            st.info("Espacio para alimentar los antecedentes históricos de la Etapa 1 en tiempos muertos.")
+            with st.form("form_hist"):
+                st.text_input("Número de Inventario")
+                st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)"])
+                st.date_input("Fecha de Realización Histórica")
+                st.text_area("Observaciones del antecedente")
+                if st.form_submit_button("Guardar en Histórico"):
+                    st.success("Registro histórico guardado.")
 
-# Ejecutar el módulo si se llama directamente
 if __name__ == "__main__":
     render_modulo_4_cmms()
