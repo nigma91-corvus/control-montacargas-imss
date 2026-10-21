@@ -423,14 +423,30 @@ import pandas as pd
 from datetime import date
 
 def render_modulo_4_cmms():
+    # Inyectar CSS personalizado para mejorar la visibilidad y grosor de los títulos de las pestañas
+    st.markdown("""
+        <style>
+            /* Aumentar grosor, tamaño y contraste de los textos en las pestañas de Streamlit */
+            .stTabs [data-baseweb="tab"] p {
+                font-size: 16px !important;
+                font-weight: 700 !important;
+                color: #1f2937 !important;
+            }
+            /* Resaltar la pestaña que se encuentra seleccionada */
+            .stTabs [data-baseweb="tab"][aria-selected="true"] p {
+                color: #2563eb !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.header("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
     st.markdown("Control operativo de servicios, órdenes de trabajo, validación de inconclusos y bitácora retrospectiva.")
 
-    # Inicializar el estado de la sesión para guardar los equipos calendarizados (simulación de base de datos local)
+    # Inicializar el estado de la sesión para guardar los equipos calendarizados
     if 'equipos_calendarizados' not in st.session_state:
         st.session_state.equipos_calendarizados = []
 
-    # Pestañas principales del módulo (Ampliadas a 4 para separar Inconclusos)
+    # Pestañas principales del módulo
     tab1, tab2, tab3, tab4 = st.tabs([
         "📂 1. Calendarización por Lotes", 
         "📅 2. Calendario Activo & OTs", 
@@ -470,14 +486,13 @@ def render_modulo_4_cmms():
             
             submitted_lote = st.form_submit_button("Guardar Calendarización")
             if submitted_lote and sedes_seleccionadas:
-                # Agregar los equipos individuales a la sesión al calendarizar
                 for sede in sedes_seleccionadas:
                     info = catalogo_bloques[sede]
                     for i in range(1, info["equipos"] + 1):
                         item_equipo = f"{sede} | Equipo {i} ({info['contrato']}) - Prog: {fecha_programada_lote}"
                         if item_equipo not in st.session_state.equipos_calendarizados:
                             st.session_state.equipos_calendarizados.append(item_equipo)
-                st.success(f"✅ ¡Calendarización guardada! Los equipos ya están disponibles en la Pestaña 2 para su operación.")
+                st.success("✅ ¡Calendarización guardada! Los equipos ya están disponibles en la Pestaña 2.")
             elif submitted_lote:
                 st.warning("⚠️ Seleccione al menos una sede para continuar.")
 
@@ -514,21 +529,20 @@ def render_modulo_4_cmms():
                 submitted_ejecucion = st.form_submit_button("Registrar Cierre del Equipo")
                 if submitted_ejecucion:
                     if estatus.startswith("Inconcluso"):
-                        st.warning(f"⚠️ Servicio registrado como **Inconcluso** para **{equipo_activo}**. Se envió automáticamente a la **Pestaña 3 (Bandeja de Inconclusos)**.")
+                        st.warning(f"⚠️ Servicio registrado como **Inconcluso** para **{equipo_activo}**. Se envió a la **Pestaña 3**.")
                     else:
                         st.success(f"✅ Servicio concluido con éxito para **{equipo_activo}**.")
 
     # ==========================================
-    # PESTAÑA 3: BANDEJA DE INCONCLUSOS (DEDICADA)
+    # PESTAÑA 3: BANDEJA DE INCONCLUSOS
     # ==========================================
     with tab3:
         st.subheader("🔴 Bandeja Exclusiva de Servicios Inconclusos y Bloqueos")
-        st.markdown("Aquí se concentran únicamente las unidades que presentan pendientes para darles seguimiento prioritario y desbloquearlas.")
+        st.markdown("Concentrado de unidades detenidas para darles seguimiento prioritario y desbloquearlas.")
         
-        # Tabla de ejemplo de inconclusos
         df_inc = pd.DataFrame({
             "Equipo / Sede": ["CDMX Sur | Equipo 2 (J1954)", "Hidalgo | Equipo 1 (J2523)"],
-            "Motivo del Bloqueo": ["Falta de refacción hidráulica (Bomba principal)", "Pendiente de ajuste eléctrico en tarjeta"],
+            "Motivo del Bloqueo": ["Falta de refacción hidráulica (Bomba principal)", "Pendiente de ajuste eléctrico"],
             "Estatus": ["Bloqueado (Anti-Falsos Positivos)", "Bloqueado"],
             "Fecha de Reporte": ["2026-11-03", "2026-11-04"]
         })
@@ -537,26 +551,26 @@ def render_modulo_4_cmms():
         st.markdown("#### Resolver y Liberar Unidad")
         with st.form("form_liberar_inconcluso"):
             equipo_a_liberar = st.text_input("Ingrese el nombre o clave del equipo a solventar:")
-            comentarios_resolucion = st.text_area("Notas de la corrección realizada (ej. Refacción instalada y probada)")
+            comentarios_resolucion = st.text_area("Notas de la corrección realizada")
             submitted_liberar = st.form_submit_button("Aplicar Corrección y Desbloquear Unidad")
             
             if submitted_liberar and equipo_a_liberar:
-                st.success(f"✅ El equipo **{equipo_a_liberar}** ha sido desbloqueado exitosamente y la cadena operativa queda liberada.")
+                st.success(f"✅ El equipo **{equipo_a_liberar}** ha sido desbloqueado exitosamente.")
 
     # ==========================================
     # PESTAÑA 4: BITÁCORA HISTÓRICA (ETAPA 1)
     # ==========================================
     with tab4:
         st.subheader("⏪ Ventana de Captura Histórica (Etapa 1)")
-        st.info("Utilice este espacio exclusivo durante los tiempos muertos para alimentar los antecedentes históricos hacia atrás sin interferir con la operación activa de noviembre 2026.")
+        st.info("Utilice este espacio exclusivo durante los tiempos muertos para alimentar antecedentes históricos.")
         
         with st.form("form_hist_etapa1"):
             st.text_input("Número de Inventario / Sede Histórica")
-            st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)", "Antecedente Anteriores"])
+            st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)"])
             st.date_input("Fecha Real del Antecedente")
             st.text_area("Observaciones del historial")
             if st.form_submit_button("Guardar en Bitácora Histórica"):
-                st.success("💾 Antecedente histórico guardado correctamente en la base de datos.")
+                st.success("💾 Antecedente histórico guardado correctamente.")
 
 if __name__ == "__main__":
     render_modulo_4_cmms()
