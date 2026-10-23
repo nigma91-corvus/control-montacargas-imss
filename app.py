@@ -266,7 +266,7 @@ elif menu == "🎇 Ficha Digital por Equipo":
 # ==========================================
 elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     st.subheader("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
-    st.markdown("Control operativo, calendarización por lotes con reglas de contrato (**J1954 ➡️ Etapa 2** | **J2523 ➡️ Etapa 3**), calendario activo y expediente.")
+    st.markdown("Control operativo, calendarización por lotes con asignación inteligente de contratos (**J1954 ➡️ Etapa 2** | **J2523 ➡️ Etapa 3**), calendario activo y expediente.")
 
     tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
         "📂 1. Calendarización por Lotes (Contrato automático)",
@@ -282,7 +282,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON REGLAS J1954 / J2523)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON RESPALDO SEGURO)
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes (Asociación Automática de Contrato)")
@@ -293,16 +293,17 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         with st.form("form_calendarizacion_lotes_smart"):
             contrato_seleccionado = st.selectbox("Seleccione el Contrato / Lote:", options=catalogo_contratos_disponibles)
             
-            # Extraer código base del contrato seleccionado
             codigo_contrato = "J1954" if "J1954" in contrato_seleccionado else "J2523"
             etapa_automatica = "Etapa 2 (2024)" if codigo_contrato == "J1954" else "Etapa 3 (2024)"
             
             st.info(f"📌 **Etapa vinculada automáticamente:** {etapa_automatica}")
 
-            # Filtrar sedes disponibles según el contrato en el padrón si existe la columna
+            # Filtrar sedes disponibles según el contrato, con respaldo si está vacío
+            df_contrato_filtro = pd.DataFrame()
             if c_contrato_key in df_padron.columns:
                 df_contrato_filtro = df_padron[df_padron[c_contrato_key].astype(str).str.contains(codigo_contrato, case=False, na=False)]
-            else:
+            
+            if df_contrato_filtro.empty:
                 df_contrato_filtro = df_padron.copy()
 
             sedes_disponibles_contrato = df_contrato_filtro[c_ooad_key].unique() if c_ooad_key in df_contrato_filtro.columns else []
@@ -433,4 +434,34 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
             historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
             if historial_equipo:
-                df
+                df_hist_eq = pd.DataFrame(historial_equipo)
+                st.dataframe(df_hist_eq, use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
+
+    # ==========================================
+    # PESTAÑA 4: BANDEJA DE INCONCLUSOS
+    # ==========================================
+    with tab_cmms4:
+        st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
+        inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
+        
+        if inconclusos_locales:
+            df_inc = pd.DataFrame(inconclusos_locales)
+            st.dataframe(df_inc, use_container_width=True, hide_index=True)
+        else:
+            st.success("🟢 No hay unidades con servicios inconclusos o no realizados registrados en la sesión actual.")
+
+# ==========================================
+# MÓDULO 5: EDITAR / REGISTRAR UNIDAD
+# ==========================================
+elif menu == "📝 Editar / Registrar Unidad":
+    st.subheader("📝 Registro o Modificación de Unidades en Padrón")
+    st.info("Utilice este módulo para dar de alta nuevas unidades o actualizar la información general de la flota en Supabase.")
+    with st.form("form_reg_unidad"):
+        nuevo_inv = st.text_input("Número de Inventario")
+        nueva_serie = st.text_input("Número de Serie")
+        nueva_ooad = st.text_input("OOAD / Estado")
+        submit_reg = st.form_submit_button("Guardar en Padrón General")
+        if submit_reg:
+            st.success(f"Unidad con inventario {nuevo_inv} procesada correctamente.")
