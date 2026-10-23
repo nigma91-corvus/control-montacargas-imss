@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client, Client
 import io
-from datetime import datetime
+from datetime import datetime, date
+import altair as alt
 
 # ==========================================
 # 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CLAROS INSTITUCIONALES
@@ -14,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos limpios sobre fondo claro con acentos institucionales sutiles
+# Estilos limpios sobre fondo claro con acentos institucionales sutiles y forzado de inputs legibles
 st.markdown("""
     <style>
     .stApp {
@@ -62,6 +63,21 @@ st.markdown("""
     }
     [data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #005A36 !important;
+    }
+
+    /* Forzar visibilidad y color claro en formularios e inputs */
+    .stForm {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        padding: 20px !important;
+        border-radius: 10px !important;
+    }
+    .stTextInput input, .stTextArea textarea, .stSelectbox select {
+        color: #1F2937 !important;
+        background-color: #FFFFFF !important;
+    }
+    p, span, label {
+        color: #1F2937 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -111,6 +127,10 @@ if df_padron.empty:
     st.warning("La base de datos se encuentra vacía o hay un problema de conexión con Supabase.")
     st.stop()
 
+# Inicializar estados en session_state para registros de mantenimiento locales si es necesario
+if "historial_mantenimientos_local" not in st.session_state:
+    st.session_state.historial_mantenimientos_local = []
+
 # ==========================================
 # 3. NAVEGACIÓN MODULAR (5 MÓDULOS)
 # ==========================================
@@ -133,23 +153,11 @@ st.sidebar.markdown("---")
 st.sidebar.caption("🌐 **Infraestructura:** Supabase Cloud")
 st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 
-import altair as alt
-
 # ==========================================
 # MÓDULO 1: DASHBOARD & SEMÁFORO DE FLOTA
 # ==========================================
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
-    
-    st.markdown("""
-        <style>
-        div[data-baseweb="select"] > div {
-            background-color: #FFFFFF !important;
-            color: #1F2937 !important;
-            border-color: #D1D5DB !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
     
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
@@ -158,7 +166,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             ["Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)", "Etapa 4"]
         )
     
-    # FILTRADO EXACTO BASADO EN LOS NOMBRES REALES DE SUPABASE
     df_dash = df_padron.copy()
     if filtro_etapa_dash != "Todas las Etapas":
         if filtro_etapa_dash == "Etapa 4":
@@ -167,7 +174,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == filtro_etapa_dash.lower()]
 
     total_u = len(df_dash)
-    
     op_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Operativo", case=False, na=False)])
     garantia_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Garantía|Garantia", case=False, na=False)])
     inconcluso_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
@@ -178,19 +184,13 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
-    
-    with c1:
-        st.metric("Flota en Vista", f"{total_u} U")
-        st.caption(f"Filtro: {filtro_etapa_dash}")
-        
+    c1.metric("Flota en Vista", f"{total_u} U")
     c2.metric("Disponibilidad", f"{disp_porcentaje:.1f}%")
     c3.metric("🟢 Operativos", f"{op_count} U")
-    c4.metric("🟡 Servicio Garantía Inconcluso", f"{garantia_count} U")
+    c4.metric("🟡 Garantía Inconclusa", f"{garantia_count} U")
     c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
 
     st.markdown("---")
-    
-    # GRÁFICA VERTICAL CON ETIQUETAS FORZADAS A MOSTRARSE AL 100%
     st.subheader(f"📍 Distribución por OOAD / Estado ({filtro_etapa_dash})")
     
     if "ooad_estado" in df_dash.columns and not df_dash.empty:
@@ -198,452 +198,221 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         counts_ooad_full.columns = ["OOAD_Estado", "Total"]
         counts_ooad_full = counts_ooad_full[counts_ooad_full["Total"] > 0]
         
-        # labelOverlap=False evita que Altair oculte los nombres de las columnas
         chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
             x=alt.X('OOAD_Estado:N', title='OOAD / Estado', sort='-y', 
                     axis=alt.Axis(labelAngle=-45, labelColor='#1F2937', labelOverlap=False)),
             y=alt.Y('Total:Q', title='Número de Unidades', 
                     axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB', format='d')),
             tooltip=['OOAD_Estado', 'Total']
-        ).properties(
-            width=alt.Step(38),
-            height=380
-        ).configure_view(
-            strokeWidth=0,
-            fill='white'
-        ).configure(
-            background='white'
-        )
+        ).properties(width=alt.Step(38), height=380).configure_view(strokeWidth=0, fill='white').configure(background='white')
         
         st.altair_chart(chart, use_container_width=True)
-        
-        with st.expander("📋 Ver Desglose Numérico de Unidades por Estado / OOAD"):
-            st.dataframe(counts_ooad_full, use_container_width=True, hide_index=True)
-    else:
-        st.info(f"⚠️ No hay unidades registradas para la selección: {filtro_etapa_dash}")
-
-    st.markdown("---")
-    
-    st.subheader("🔎 Control de Unidades con Servicios o Garantías Inconclusas")
-    
-    df_atencion = df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Garantía|Garantia|Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)]
-    
-    if not df_atencion.empty:
-        st.warning(f"Se identificaron {len(df_atencion)} unidades con trámites o servicios inconclusos en esta selección.")
-        st.dataframe(df_atencion, use_container_width=True, hide_index=True)
-    else:
-        st.success("🟢 No hay registros con servicios o garantías pendientes en esta vista.")
 
 # ==========================================
 # MÓDULO 2: BUSCADOR UNIVERSAL & TABLA MAESTRO
 # ==========================================
-if menu == "🔍 Buscador Universal & Tabla Maestro":
+elif menu == "🔍 Buscador Universal & Tabla Maestro":
     st.subheader("🔍 Búsqueda Universal en el Padrón de Flota")
-    st.markdown("Consulta rápida por número de serie, inventario, OOAD, estado, modelo o estatus operativo.")
-    
-    # Única caja de búsqueda limpia y directa
-    texto_busqueda = st.text_input(
-        "Criterio de búsqueda:",
-        placeholder="Escribe aquí para buscar en toda la flota (ej. CDMX, Montacargas, Serie...)"
-    )
+    texto_busqueda = st.text_input("Criterio de búsqueda:", placeholder="Escribe aquí para buscar en toda la flota...")
 
     df_busqueda = df_padron.copy()
-    
     if texto_busqueda:
-        # Búsqueda insensible a mayúsculas en todas las columnas del padrón general
         mask = df_busqueda.astype(str).apply(lambda col: col.str.contains(texto_busqueda, case=False, na=False)).any(axis=1)
         df_busqueda = df_busqueda[mask]
     
     st.markdown(f"**Resultados encontrados:** {len(df_busqueda)} unidades")
-    
-    if not df_busqueda.empty:
-        st.dataframe(
-            df_busqueda,
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.info("No se encontraron registros que coincidan con la búsqueda.")
+    st.dataframe(df_busqueda, use_container_width=True, hide_index=True)
 
 # ==========================================
-# MÓDULO 3: FICHA DIGITAL POR EQUIPO (EXPEDIENTE 360°)
+# MÓDULO 3: FICHA DIGITAL POR EQUIPO
 # ==========================================
-if "Ficha Digital" in str(menu):
+elif menu == "🎇 Ficha Digital por Equipo":
     st.subheader("📁 Ficha Digital e Historial por Equipo")
     
-    # Búsqueda segura del padrón MAESTRO completo
-    df_master = None
-    for var_name in ["df_padron", "df", "padron"]:
-        if var_name in locals() and isinstance(locals()[var_name], pd.DataFrame) and not locals()[var_name].empty:
-            df_master = locals()[var_name]
-            break
+    cols = df_padron.columns.tolist()
+    col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
+    col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
+    
+    texto_busqueda_unidad = st.text_input("Buscar unidad (Inventario, Serie, OOAD...):", key="busq_ficha_mod3")
+    df_f = df_padron.copy()
+    if texto_busqueda_unidad:
+        mask = df_f.astype(str).apply(lambda col: col.str.contains(texto_busqueda_unidad, case=False, na=False)).any(axis=1)
+        df_f = df_f[mask]
+        
+    if not df_f.empty:
+        opciones_dict = {f"Inv: {row.get(col_inv)} | Serie: {row.get(col_ser)} | OOAD: {row.get('ooad_estado')}": idx for idx, row in df_f.iterrows()}
+        selected_label = st.selectbox("Seleccione la unidad:", options=list(opciones_dict.keys()))
+        
+        if selected_label:
+            idx_sel = opciones_dict[selected_label]
+            unidad = df_padron.loc[idx_sel]
             
-    if df_master is None and "df_filtered" in locals() and not df_filtered.empty:
-        df_master = df_filtered
+            col_d1, col_d2, col_d3, col_d4 = st.columns(4)
+            col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
+            col_d2.metric("Serie", str(unidad.get(col_ser, "N/D")))
+            col_d3.metric("OOAD", str(unidad.get("ooad_estado", "N/D")))
+            col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
             
-    if df_master is not None:
-        try:
-            total_filas = len(df_master)
-            cols = df_master.columns.tolist()
-            col_inv = next((c for c in cols if "inventario" in c.lower()), cols[0])
-            col_ser = next((c for c in cols if "serie" in c.lower()), cols[1] if len(cols) > 1 else cols[0])
-            
-            st.info(f"📊 Unidades totales en el padrón: **{total_filas}**")
-            
-            # BARRA DE BÚSQUEDA GLOBAL
-            st.markdown("##### 🔍 Buscador General de Unidades")
-            texto_busqueda_unidad = st.text_input(
-                "Escribe cualquier criterio (o déjalo en blanco para ver todas las unidades):",
-                placeholder="Ej. OOAD, modelo, inventario, serie...",
-                key="input_busqueda_ficha_master_v5"
-            )
-            
-            df_filtrado_unidades = df_master.copy()
-            if texto_busqueda_unidad and texto_busqueda_unidad.strip() != "":
-                mask = df_filtrado_unidades.astype(str).apply(
-                    lambda col: col.str.contains(texto_busqueda_unidad.strip(), case=False, na=False)
-                ).any(axis=1)
-                df_filtrado_unidades = df_filtrado_unidades[mask]
-            
-            if not df_filtrado_unidades.empty:
-                opciones_dict = {}
-                for idx, row in df_filtrado_unidades.iterrows():
-                    inv = str(row.get(col_inv, "N/D"))
-                    ser = str(row.get(col_ser, "N/D"))
-                    mod = str(row.get("modelo", "N/D"))
-                    ooad = str(row.get("ooad_estado", "N/D"))
-                    label = f"[Fila {idx}] Inv: {inv}  |  Serie: {ser}  |  Modelo: {mod}  |  OOAD: {ooad}"
-                    opciones_dict[label] = idx
-                
-                selected_label = st.selectbox(
-                    f"Seleccione la unidad deseada ({len(opciones_dict)} disponibles en la lista):",
-                    options=list(opciones_dict.keys()),
-                    key="selectbox_unidades_master_v5"
-                )
-                
-                if selected_label:
-                    idx_seleccionado = opciones_dict[selected_label]
-                    unidad = df_master.loc[idx_seleccionado]
-                    
-                    # TARJETA DE PRESENTACIÓN EJECUTIVA COMPACTA
-                    st.markdown("---")
-                    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-                    col_d1.metric("Inventario", str(unidad.get(col_inv, "N/D")))
-                    col_d2.metric("Serie", str(unidad.get(col_ser, "N/D")))
-                    col_d3.metric("OOAD / Estado", str(unidad.get("ooad_estado", "N/D")))
-                    col_d4.metric("Estatus", str(unidad.get("estatus_operativo", "N/D")))
-                    
-                    # SEMÁFORO DE DATOS EXISTENTES
-                    tot_columnas = len(df_master.columns)
-                    existentes = sum(
-                        1 for c in df_master.columns 
-                        if pd.notna(unidad.get(c)) and str(unidad.get(c)).strip() not in ["", "None", "nan", "N/D", "null"]
-                    )
-                    score = int((existentes / tot_columnas) * 100) if tot_columnas > 0 else 0
-                    
-                    st.markdown(f"#### 🚦 Porcentaje de Datos Existentes en Expediente: **{score}%** ({existentes}/{tot_columnas} campos)")
-                    st.progress(score / 100)
-                    st.markdown("---")
-                    
-                    # BOTÓN DE EDICIÓN CON ESTADO
-                    edit_state_key = f"edit_active_v5_{idx_seleccionado}"
-                    if edit_state_key not in st.session_state:
-                        st.session_state[edit_state_key] = False
-                        
-                    col_b1, col_b2 = st.columns([1, 4])
-                    with col_b1:
-                        if st.button("✏️ Habilitar Edición", key=f"btn_toggle_edit_v5_{idx_seleccionado}"):
-                            st.session_state[edit_state_key] = not st.session_state[edit_state_key]
-                            st.rerun()
-                    
-                    with col_b2:
-                        if st.session_state[edit_state_key]:
-                            st.success("🔓 Modo de edición activo. Modifique los campos abajo y guarde los cambios.")
-                        else:
-                            st.caption("🔒 Haga clic en 'Habilitar Edición' para modificar o capturar datos faltantes de esta unidad.")
-                    
-                    if st.session_state[edit_state_key]:
-                        with st.form(f"form_editar_unidad_activo_v5_{idx_seleccionado}"):
-                            st.markdown("##### 📝 Formulario de Actualización de Datos")
-                            cols_form = st.columns(2)
-                            idx_col = 0
-                            nuevos_valores = {}
-                            
-                            for col in df_master.columns:
-                                val_act = unidad.get(col)
-                                val_str = "" if pd.isna(val_act) or str(val_act).strip() in ["None", "nan", "null", "N/D"] else str(val_act)
-                                
-                                with cols_form[idx_col % 2]:
-                                    nuevos_valores[col] = st.text_input(f"Campo: {col}", value=val_str, key=f"input_edit_v5_{col}_{idx_seleccionado}")
-                                    
-                                idx_col += 1
-                                
-                            btn_guardar = st.form_submit_button("💾 Guardar Cambios en la Unidad")
-                            if btn_guardar:
-                                # CONVERSIÓN SEGURA DE COLUMNAS A OBJETO PARA EVITAR ERROR DE DTYPE FLOAT64
-                                for col, val in nuevos_valores.items():
-                                    df_master[col] = df_master[col].astype(object)
-                                    df_master.loc[idx_seleccionado, col] = val
-                                st.session_state[edit_state_key] = False
-                                st.success("✅ ¡Datos actualizados correctamente en la sesión!")
-                                st.rerun()
-                    
-                    st.markdown("---")
-                    
-                    # CONSULTA GENERAL DE FICHA TÉCNICA
-                    st.markdown("### 📋 Ficha Técnica y Detalle del Expediente")
-                    
-                    filtro_ficha = st.text_input(
-                        "🔍 Buscar un dato específico dentro de esta ficha:",
-                        placeholder="Escriba cualquier texto...",
-                        key="filtro_ficha_interna_v5"
-                    )
-                    
-                    data_detalle = []
-                    for col in df_master.columns:
-                        val = unidad.get(col)
-                        val_str = "N/D" if pd.isna(val) or str(val).strip() in ["", "None", "nan", "null"] else str(val)
-                        
-                        if not filtro_ficha or (filtro_ficha.lower() in str(col).lower() or filtro_ficha.lower() in val_str.lower()):
-                            data_detalle.append({"Campo": str(col), "Valor Registrado": val_str})
-                    
-                    df_detalle_safe = pd.DataFrame(data_detalle).astype(str)
-                    st.dataframe(df_detalle_safe, width='stretch', hide_index=True)
-                    
-            else:
-                st.warning("⚠️ No se encontraron unidades que coincidan con la búsqueda ingresada.")
-        except Exception as e:
-            st.error(f"⚠️ Error al renderizar la ficha digital: {e}")
-    else:
-        st.warning("⚠️ No se detectó un padrón de flota activo en la sesión.")
-        import streamlit as st
+            st.markdown("---")
+            st.markdown("### 📋 Detalle Completo del Expediente")
+            data_detalle = [{"Campo": str(c), "Valor": str(unidad.get(c, ""))} for c in df_padron.columns]
+            st.dataframe(pd.DataFrame(data_detalle), use_container_width=True, hide_index=True)
 
-import streamlit as st
-import pandas as pd
-from datetime import date
+# ==========================================
+# MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS) - CALENDARIO & EXPEDIENTE
+# ==========================================
+elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
+    st.subheader("🛠️ Módulo 4: Calendario CMMS & Expediente de Servicios")
+    st.markdown("Control operativo con semáforo Pantone estricto (activado únicamente tras captura explícita) y enlace directo al expediente.")
 
-def render_modulo_4_cmms():
-    # Inyectar CSS para forzar estilo claro y evitar problemas de contraste con el modo oscuro
-    st.markdown("""
-        <style>
-            /* Forzar fondo claro y texto legible en los contenedores y formularios */
-            .stForm {
-                background-color: #f8fafc !important;
-                border: 1px solid #e2e8f0 !important;
-                padding: 20px !important;
-                border-radius: 10px !important;
-            }
-            
-            /* Títulos de las pestañas con alta visibilidad */
-            .stTabs [data-baseweb="tab"] p {
-                font-size: 16px !important;
-                font-weight: 700 !important;
-                color: #1f2937 !important;
-            }
-            .stTabs [data-baseweb="tab"][aria-selected="true"] p {
-                color: #2563eb !important;
-            }
-            
-            /* Forzar texto oscuro y legible al escribir en inputs y text areas */
-            .stTextInput input, .stTextArea textarea {
-                color: #1f2937 !important;
-                background-color: #ffffff !important;
-            }
-            
-            /* Estilo general de textos descriptivos */
-            p, span, label {
-                color: #1f2937 !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.header("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
-    st.markdown("Control operativo de servicios, órdenes de trabajo, validación de inconclusos y bitácora retrospectiva.")
-
-    # Inicializar el estado de la sesión para guardar los equipos calendarizados
-    if 'equipos_calendarizados' not in st.session_state:
-        st.session_state.equipos_calendarizados = []
-
-    # Declaración exacta de las 4 pestañas principales
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📂 1. Calendarización por Lotes", 
-        "📅 2. Calendario Activo & OTs", 
-        "🔴 3. Bandeja de Inconclusos", 
-        "⏪ 4. Bitácora Histórica (Etapa 1)"
+    # Pestañas del CMMS
+    tab_cmms1, tab_cmms2, tab_cmms3 = st.tabs([
+        "📅 Calendario & Listado por OOAD",
+        "📂 Expediente y Captura de Servicio en Sitio",
+        "🔴 Bandeja de Inconclusos / Alertas"
     ])
 
-    # Catálogo maestro de bloques enriquecido con sus Números de Serie / Inventario reales
-    catalogo_bloques = {
-        "CDMX Sur (J1954)": {
-            "contrato": "J1954", 
-            "equipos": [
-                {"id": "EQ-01", "serie": "SN-99482-A", "inv": "MTC-041"},
-                {"id": "EQ-02", "serie": "SN-99483-B", "inv": "MTC-042"},
-                {"id": "EQ-03", "serie": "SN-99484-C", "inv": "MTC-043"},
-                {"id": "EQ-04", "serie": "SN-99485-D", "inv": "MTC-044"}
-            ]
-        },
-        "Hidalgo (J2523)": {
-            "contrato": "J2523", 
-            "equipos": [
-                {"id": "EQ-01", "serie": "SN-88102-X", "inv": "MTC-088"},
-                {"id": "EQ-02", "serie": "SN-88103-Y", "inv": "MTC-089"}
-            ]
-        },
-        "Chiapas (J1954)": {
-            "contrato": "J1954", 
-            "equipos": [
-                {"id": "EQ-01", "serie": "SN-77210-1", "inv": "MTC-101"},
-                {"id": "EQ-02", "serie": "SN-77211-2", "inv": "MTC-102"},
-                {"id": "EQ-03", "serie": "SN-77212-3", "inv": "MTC-103"},
-                {"id": "EQ-04", "serie": "SN-77213-4", "inv": "MTC-104"}
-            ]
-        },
-        "Baja California Norte (J1954)": {
-            "contrato": "J1954", 
-            "equipos": [
-                {"id": "EQ-01", "serie": "SN-55401-BC", "inv": "MTC-201"},
-                {"id": "EQ-02", "serie": "SN-55402-BC", "inv": "MTC-202"}
-            ]
-        },
-        "Querétaro (J1954)": {
-            "contrato": "J1954", 
-            "equipos": [
-                {"id": "EQ-01", "serie": "SN-33201-Q", "inv": "MTC-301"},
-                {"id": "EQ-02", "serie": "SN-33202-Q", "inv": "MTC-302"}
-            ]
-        }
-    }
+    cols_p = df_padron.columns.tolist()
+    c_inv_key = next((c for c in cols_p if "inventario" in c.lower()), cols_p[0])
+    c_ser_key = next((c for c in cols_p if "serie" in c.lower()), cols_p[1] if len(cols_p) > 1 else cols_p[0])
+    c_ooad_key = next((c for c in cols_p if "ooad" in c.lower()), "ooad_estado")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES
+    # PESTAÑA 1: CALENDARIZACIÓN Y VISTA POR OOAD
     # ==========================================
-    with tab1:
-        st.subheader("Configuración y Registro Rápido por Lotes")
+    with tab_cmms1:
+        st.markdown("### 🗺️ Vista de Unidades Agrupadas por OOAD / Sede")
         
-        etapa_activa = st.selectbox(
-            "Seleccione la Etapa a Registrar:",
-            ["Etapa 2 y 3 (Activas Nov 2026)", "Etapa 1 (Histórico / Retrospectivo)", "Etapa 3 (Futura)"]
-        )
+        ooads_disponibles = df_padron[c_ooad_key].unique() if c_ooad_key in df_padron.columns else ["General"]
+        ooad_seleccionada = st.selectbox("Filtrar por OOAD / Sede:", options=["Todas las OOADs"] + list(ooads_disponibles))
         
-        with st.form("form_captura_lote"):
-            st.markdown("### Seleccione las OOADs / Sedes a dar de alta simultáneamente")
-            sedes_seleccionadas = st.multiselect(
-                "Listado de Sedes Disponibles:",
-                options=list(catalogo_bloques.keys())
-            )
+        df_vista_cal = df_padron.copy()
+        if ooad_seleccionada != "Todas las OOADs":
+            df_vista_cal = df_vista_cal[df_vista_cal[c_ooad_key] == ooad_seleccionada]
+
+        st.markdown(f"**Unidades en la Sede seleccionada:** {len(df_vista_cal)}")
+        
+        # Mostrar tabla interactiva con colores y estado del semáforo Pantone
+        tabla_resumen = []
+        for idx, row in df_vista_cal.iterrows():
+            inv = row.get(c_inv_key, "N/D")
+            ser = row.get(c_ser_key, "N/D")
+            ooad = row.get(c_ooad_key, "N/D")
             
-            st.markdown("### Asigne la Fecha Programada para este Lote")
-            fecha_programada_lote = st.date_input("Fecha Teórica Programada", value=date.today())
-            
-            if sedes_seleccionadas:
-                total_eq = sum(len(catalogo_bloques[s]["equipos"]) for s in sedes_seleccionadas)
-                contratos_involucrados = list(set(catalogo_bloques[s]["contrato"] for s in sedes_seleccionadas))
+            # Buscar si tiene servicios registrados
+            servicios_unidad = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == ser]
+            if servicios_unidad:
+                ultimo_estatus = servicios_unidad[0].get("estatus", "Pendiente")
+            else:
+                ultimo_estatus = "Sin Captura (Neutro)"
                 
-                st.info(
-                    f"📊 **Resumen del Lote Seleccionado:**\n"
-                    f"- **Sedes a registrar:** {len(sedes_seleccionadas)}\n"
-                    f"- **Total de montacargas involucrados:** {total_eq}\n"
-                    f"- **Contrato(s):** {', '.join(contratos_involucrados)}\n"
-                    f"- **Fecha asignada:** {fecha_programada_lote}"
-                )
+            tabla_resumen.append({
+                "OOAD / Sede": ooad,
+                "No. Inventario": inv,
+                "No. Serie": ser,
+                "Último Estatus / Semáforo": ultimo_estatus
+            })
             
-            submitted_lote = st.form_submit_button("Guardar Lote en Base de Datos")
-            if submitted_lote and sedes_seleccionadas:
-                for sede in sedes_seleccionadas:
-                    info = catalogo_bloques[sede]
-                    for eq in info["equipos"]:
-                        item_equipo = f"{sede} | Inv: {eq['inv']} | Serie: {eq['serie']} ({info['contrato']}) - Prog: {fecha_programada_lote}"
-                        if item_equipo not in st.session_state.equipos_calendarizados:
-                            st.session_state.equipos_calendarizados.append(item_equipo)
-                st.success(f"✅ Se registraron exitosamente los equipos con sus series. Ya están listos en la Pestaña 2.")
-            elif submitted_lote:
-                st.warning("⚠️ Seleccione al menos una sede para continuar.")
+        df_res_presentacion = pd.DataFrame(tabla_resumen)
+        st.dataframe(df_res_presentacion, use_container_width=True, hide_index=True)
+        st.info("💡 **Regla de Semáforo:** Los colores Pantone (Verde 561 C, Amarillo 468 C, Rojo 7420 C) se activan exclusivamente al realizar la captura explícita en la pestaña contigua.")
 
     # ==========================================
-    # PESTAÑA 2: CALENDARIO ACTIVO & OTs (INDEPENDIENTE)
+    # PESTAÑA 2: EXPEDIENTE Y CAPTURA DE SERVICIO DIRECTA
     # ==========================================
-    with tab2:
-        st.subheader("Gestión Operativa Individual (Órdenes de Trabajo)")
-        st.markdown("Cada equipo muestra su número de serie e inventario real para un seguimiento preciso.")
+    with tab_cmms2:
+        st.markdown("### 📂 Acceso Directo al Expediente & Registro de Orden de Trabajo")
+        st.markdown("Seleccione el montacargas para consultar su historial o registrar un nuevo servicio en sitio.")
+
+        # Selector de montacargas por Serie / Inventario
+        opciones_equipos_cmms = {}
+        for idx, row in df_padron.iterrows():
+            inv_val = str(row.get(c_inv_key, "N/D"))
+            ser_val = str(row.get(c_ser_key, "N/D"))
+            ooad_val = str(row.get(c_ooad_key, "N/D"))
+            label_eq = f"Sede: {ooad_val} | Inv: {inv_val} | Serie: {ser_val}"
+            opciones_equipos_cmms[label_eq] = row
+
+        equipo_elegido_label = st.selectbox("Seleccione el equipo:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo")
         
-        if not st.session_state.equipos_calendarizados:
-            st.info("ℹ️ No hay equipos calendarizados todavía. Vaya a la **Pestaña 1** para calendarizar lotes.")
-        else:
-            equipo_activo = st.selectbox(
-                "Seleccione el montacargas por Serie / Inventario a ejecutar:",
-                options=st.session_state.equipos_calendarizados
-            )
+        if equipo_elegido_label:
+            eq_data = opciones_equipos_cmms[equipo_elegido_label]
+            serie_sel = str(eq_data.get(c_ser_key, ""))
+            inv_sel = str(eq_data.get(c_inv_key, ""))
             
-            with st.form("form_ejecucion_independiente"):
-                st.markdown(f"### Orden de Trabajo para: **{equipo_activo}**")
-                
-                col_1, col_2 = st.columns(2)
-                with col_1:
-                    fecha_real = st.date_input("Fecha Real de Cierre Físico", value=date.today())
-                    tecnico = st.text_input("Técnico / Proveedor Responsable")
-                with col_2:
-                    estatus = st.selectbox(
-                        "Estatus del Servicio",
-                        ["Concluido", "Inconcluso (Requiere seguimiento)", "En Espera de Refacción"]
+            st.markdown("---")
+            col_info1, col_info2, col_info3 = st.columns(3)
+            col_info1.metric("Inventario", inv_sel)
+            col_info2.metric("Número de Serie", serie_sel)
+            col_info3.metric("Sede / OOAD", str(eq_data.get(c_ooad_key, "N/D")))
+            
+            # Formulario de captura de servicio
+            st.markdown("#### 📝 Capturar Orden de Servicio y Estatus Pantone")
+            with st.form(f"form_captura_ot_{serie_sel}"):
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    fecha_servicio = st.date_input("Fecha Real del Servicio", value=date.today())
+                    nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
+                with col_f2:
+                    estatus_pantone = st.selectbox(
+                        "Estatus del Servicio (Aplica Color Pantone):",
+                        [
+                            "🟢 Concluido (100%) - Verde Pantone 561 C (#005A36)",
+                            "🟡 Inconcluso / Falla - Amarillo Pantone 468 C (#C2B280)",
+                            "🔴 No Realizado - Rojo Pantone 7420 C (#8A1C2A)"
+                        ]
                     )
+                    nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
                 
-                observaciones_ot = st.text_area("Diagnóstico y Observaciones Específicas de este Equipo")
-                evidencia_pdf = st.file_uploader("Cargar Orden de Trabajo en PDF (Sincronizado a Supabase Storage)", type=["pdf", "png", "jpg"])
+                observaciones_ot = st.text_area("Diagnóstico y Observaciones Detalladas del Servicio")
+                pdf_evidencia = st.file_uploader("Cargar Orden de Trabajo Firmada (PDF)", type=["pdf", "png", "jpg"])
                 
-                submitted_ejecucion = st.form_submit_button("Registrar Cierre Individual")
-                if submitted_ejecucion:
-                    if estatus.startswith("Inconcluso"):
-                        st.warning(f"⚠️ Servicio registrado como **Inconcluso** para este equipo. Se envió a la **Pestaña 3 (Bandeja de Inconclusos)**.")
-                    else:
-                        st.success(f"✅ Servicio concluido y registrado con éxito para este equipo.")
+                submitted_ot = st.form_submit_button("💾 Guardar y Actualizar Estatus en Calendario")
+                if submitted_ot:
+                    nuevo_registro = {
+                        "serie": serie_sel,
+                        "inventario": inv_sel,
+                        "fecha": str(fecha_servicio),
+                        "tecnico": nombre_tecnico,
+                        "estatus": estatus_pantone,
+                        "firmante": nombre_firmante,
+                        "observaciones": observaciones_ot
+                    }
+                    st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
+                    st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
+
+            # Historial de servicios de este equipo
+            st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
+            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
+            if historial_equipo:
+                df_hist_eq = pd.DataFrame(historial_equipo)
+                st.dataframe(df_hist_eq, use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ No hay servicios registrados localmente para esta unidad. Utiliza el formulario superior para registrar el primero.")
 
     # ==========================================
     # PESTAÑA 3: BANDEJA DE INCONCLUSOS
     # ==========================================
-    with tab3:
-        st.subheader("🔴 Bandeja Exclusiva de Servicios Inconclusos y Bloqueos")
-        st.markdown("Concentrado de unidades detenidas identificadas por su número de serie e inventario.")
+    with tab_cmms3:
+        st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
+        inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
         
-        unidades_bloqueadas_bd = [
-            "CDMX Sur | Inv: MTC-042 | Serie: SN-99483-B (J1954)",
-            "Hidalgo | Inv: MTC-088 | Serie: SN-88102-X (J2523)"
-        ]
-        
-        df_inc = pd.DataFrame({
-            "Equipo / Identificación": unidades_bloqueadas_bd,
-            "Motivo del Bloqueo": ["Falta de refacción hidráulica (Bomba principal)", "Pendiente de ajuste eléctrico"],
-            "Estatus": ["Bloqueado (Anti-Falsos Positivos)", "Bloqueado"],
-            "Fecha de Reporte": ["2026-11-03", "2026-11-04"]
-        })
-        st.dataframe(df_inc, use_container_width=True)
-        
-        st.markdown("#### Resolver y Liberar Unidad")
-        with st.form("form_liberar_inconcluso"):
-            equipo_a_liberar = st.selectbox(
-                "Seleccione la unidad a solventar de la lista de pendientes:",
-                options=unidades_bloqueadas_bd
-            )
-            comentarios_resolucion = st.text_area("Notas de la corrección realizada (ej. Refacción instalada y probada)")
-            submitted_liberar = st.form_submit_button("Aplicar Corrección y Desbloquear Unidad")
-            
-            if submitted_liberar:
-                st.success(f"✅ La unidad **{equipo_a_liberar}** ha sido desbloqueada exitosamente.")
+        if inconclusos_locales:
+            df_inc = pd.DataFrame(inconclusos_locales)
+            st.dataframe(df_inc, use_container_width=True, hide_index=True)
+        else:
+            st.success("🟢 No hay unidades con servicios inconclusos o no realizados registrados en la sesión actual.")
 
-    # ==========================================
-    # PESTAÑA 4: BITÁCORA HISTÓRICA (ETAPA 1)
-    # ==========================================
-    with tab4:
-        st.subheader("⏪ Ventana de Captura Histórica (Etapa 1)")
-        st.info("Utilice este espacio exclusivo durante los tiempos muertos para alimentar los antecedentes históricos de la Etapa 1.")
-        
-        with st.form("form_hist_etapa1"):
-            st.text_input("Número de Inventario / Serie Histórica")
-            st.selectbox("Servicio Histórico", ["Servicio 1 (Etapa 1)", "Servicio 2 (Etapa 1)"])
-            st.date_input("Fecha Real del Antecedente")
-            st.text_area("Observaciones del antecedente histórico")
-            if st.form_submit_button("Guardar en Histórico"):
-                st.success("💾 Antecedente histórico guardado correctamente.")
-
-if __name__ == "__main__":
-    render_modulo_4_cmms()
+# ==========================================
+# MÓDULO 5: EDITAR / REGISTRAR UNIDAD
+# ==========================================
+elif menu == "📝 Editar / Registrar Unidad":
+    st.subheader("📝 Registro o Modificación de Unidades en Padrón")
+    st.info("Utilice este módulo para dar de alta nuevas unidades o actualizar la información general de la flota en Supabase.")
+    with st.form("form_reg_unidad"):
+        nuevo_inv = st.text_input("Número de Inventario")
+        nueva_serie = st.text_input("Número de Serie")
+        nueva_ooad = st.text_input("OOAD / Estado")
+        submit_reg = st.form_submit_button("Guardar en Padrón General")
+        if submit_reg:
+            st.success(f"Unidad con inventario {nuevo_inv} procesada correctamente.")
