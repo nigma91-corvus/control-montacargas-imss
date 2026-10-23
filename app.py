@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos limpios sobre fondo claro con acentos institucionales sutiles y forzado de inputs legibles
+# Estilos limpios sobre fondo claro con acentos institucionales y forzado de inputs legibles
 st.markdown("""
     <style>
     .stApp {
@@ -127,9 +127,12 @@ if df_padron.empty:
     st.warning("La base de datos se encuentra vacía o hay un problema de conexión con Supabase.")
     st.stop()
 
-# Inicializar estados en session_state para registros de mantenimiento locales si es necesario
+# Inicializar estados en session_state
 if "historial_mantenimientos_local" not in st.session_state:
     st.session_state.historial_mantenimientos_local = []
+
+if "equipos_calendarizados" not in st.session_state:
+    st.session_state.equipos_calendarizados = []
 
 # ==========================================
 # 3. NAVEGACIÓN MODULAR (5 MÓDULOS)
@@ -259,72 +262,119 @@ elif menu == "🎇 Ficha Digital por Equipo":
             st.dataframe(pd.DataFrame(data_detalle), use_container_width=True, hide_index=True)
 
 # ==========================================
-# MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS) - CALENDARIO & EXPEDIENTE
+# MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS)
 # ==========================================
 elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
-    st.subheader("🛠️ Módulo 4: Calendario CMMS & Expediente de Servicios")
-    st.markdown("Control operativo con semáforo Pantone estricto (activado únicamente tras captura explícita) y enlace directo al expediente.")
+    st.subheader("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
+    st.markdown("Control operativo, calendarización por lotes con reglas de contrato (**J1954 ➡️ Etapa 2** | **J2523 ➡️ Etapa 3**), calendario activo y expediente.")
 
-    # Pestañas del CMMS
-    tab_cmms1, tab_cmms2, tab_cmms3 = st.tabs([
-        "📅 Calendario & Listado por OOAD",
-        "📂 Expediente y Captura de Servicio en Sitio",
-        "🔴 Bandeja de Inconclusos / Alertas"
+    tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
+        "📂 1. Calendarización por Lotes (Contrato automático)",
+        "📅 2. Calendario Activo & Semáforo Pantone",
+        "📂 3. Expediente y Captura de Servicio en Sitio",
+        "🔴 4. Bandeja de Inconclusos"
     ])
 
     cols_p = df_padron.columns.tolist()
     c_inv_key = next((c for c in cols_p if "inventario" in c.lower()), cols_p[0])
     c_ser_key = next((c for c in cols_p if "serie" in c.lower()), cols_p[1] if len(cols_p) > 1 else cols_p[0])
     c_ooad_key = next((c for c in cols_p if "ooad" in c.lower()), "ooad_estado")
+    c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN Y VISTA POR OOAD
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON REGLAS J1954 / J2523)
     # ==========================================
     with tab_cmms1:
-        st.markdown("### 🗺️ Vista de Unidades Agrupadas por OOAD / Sede")
-        
-        ooads_disponibles = df_padron[c_ooad_key].unique() if c_ooad_key in df_padron.columns else ["General"]
-        ooad_seleccionada = st.selectbox("Filtrar por OOAD / Sede:", options=["Todas las OOADs"] + list(ooads_disponibles))
-        
-        df_vista_cal = df_padron.copy()
-        if ooad_seleccionada != "Todas las OOADs":
-            df_vista_cal = df_vista_cal[df_vista_cal[c_ooad_key] == ooad_seleccionada]
+        st.markdown("### 🗺️ Calendarización Rápida por Lotes (Asociación Automática de Contrato)")
+        st.markdown("💡 **Regla integrada:** Contrato **J1954** asigna automáticamente **Etapa 2**, y contrato **J2523** asigna **Etapa 3**.")
 
-        st.markdown(f"**Unidades en la Sede seleccionada:** {len(df_vista_cal)}")
+        catalogo_contratos_disponibles = ["J1954 (Etapa 2)", "J2523 (Etapa 3)"]
         
-        # Mostrar tabla interactiva con colores y estado del semáforo Pantone
-        tabla_resumen = []
-        for idx, row in df_vista_cal.iterrows():
-            inv = row.get(c_inv_key, "N/D")
-            ser = row.get(c_ser_key, "N/D")
-            ooad = row.get(c_ooad_key, "N/D")
+        with st.form("form_calendarizacion_lotes_smart"):
+            contrato_seleccionado = st.selectbox("Seleccione el Contrato / Lote:", options=catalogo_contratos_disponibles)
             
-            # Buscar si tiene servicios registrados
-            servicios_unidad = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == ser]
-            if servicios_unidad:
-                ultimo_estatus = servicios_unidad[0].get("estatus", "Pendiente")
+            # Extraer código base del contrato seleccionado
+            codigo_contrato = "J1954" if "J1954" in contrato_seleccionado else "J2523"
+            etapa_automatica = "Etapa 2 (2024)" if codigo_contrato == "J1954" else "Etapa 3 (2024)"
+            
+            st.info(f"📌 **Etapa vinculada automáticamente:** {etapa_automatica}")
+
+            # Filtrar sedes disponibles según el contrato en el padrón si existe la columna
+            if c_contrato_key in df_padron.columns:
+                df_contrato_filtro = df_padron[df_padron[c_contrato_key].astype(str).str.contains(codigo_contrato, case=False, na=False)]
             else:
-                ultimo_estatus = "Sin Captura (Neutro)"
-                
-            tabla_resumen.append({
-                "OOAD / Sede": ooad,
-                "No. Inventario": inv,
-                "No. Serie": ser,
-                "Último Estatus / Semáforo": ultimo_estatus
-            })
+                df_contrato_filtro = df_padron.copy()
+
+            sedes_disponibles_contrato = df_contrato_filtro[c_ooad_key].unique() if c_ooad_key in df_contrato_filtro.columns else []
+
+            sedes_lote = st.multiselect("Seleccione las OOADs / Sedes de este contrato a calendarizar:", options=list(sedes_disponibles_contrato))
+            fecha_teorica_lote = st.date_input("Fecha Teórica Programada para este Lote", value=date.today())
             
-        df_res_presentacion = pd.DataFrame(tabla_resumen)
-        st.dataframe(df_res_presentacion, use_container_width=True, hide_index=True)
-        st.info("💡 **Regla de Semáforo:** Los colores Pantone (Verde 561 C, Amarillo 468 C, Rojo 7420 C) se activan exclusivamente al realizar la captura explícita en la pestaña contigua.")
+            submitted_lote = st.form_submit_button("Guardar Calendarización del Lote")
+            if submitted_lote and sedes_lote:
+                contador_registros = 0
+                for sede in sedes_lote:
+                    unidades_sede = df_contrato_filtro[df_contrato_filtro[c_ooad_key] == sede]
+                    for _, u_row in unidades_sede.iterrows():
+                        item_cal = {
+                            "etapa": etapa_automatica,
+                            "contrato": codigo_contrato,
+                            "ooad": sede,
+                            "inventario": str(u_row.get(c_inv_key, "")),
+                            "serie": str(u_row.get(c_ser_key, "")),
+                            "fecha_programada": str(fecha_teorica_lote)
+                        }
+                        if item_cal not in st.session_state.equipos_calendarizados:
+                            st.session_state.equipos_calendarizados.append(item_cal)
+                            contador_registros += 1
+                st.success(f"✅ Se han calendarizado {contador_registros} unidades del contrato **{codigo_contrato}** ({etapa_automatica}) exitosamente.")
+            elif submitted_lote:
+                st.warning("⚠️ Selecciona al menos una sede para continuar.")
+
+        if st.session_state.equipos_calendarizados:
+            st.markdown("#### 📋 Lotes y Unidades Calendarizadas Actualmente")
+            st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
 
     # ==========================================
-    # PESTAÑA 2: EXPEDIENTE Y CAPTURA DE SERVICIO DIRECTA
+    # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
     # ==========================================
     with tab_cmms2:
-        st.markdown("### 📂 Acceso Directo al Expediente & Registro de Orden de Trabajo")
-        st.markdown("Seleccione el montacargas para consultar su historial o registrar un nuevo servicio en sitio.")
+        st.markdown("### 📅 Calendario Operativo & Semáforo de Cumplimiento (Pantone)")
+        st.markdown("Las fechas futuras o pendientes permanecen en estatus **Neutro**. Los colores se activan estrictamente tras la captura en sitio.")
 
-        # Selector de montacargas por Serie / Inventario
+        if not st.session_state.equipos_calendarizados:
+            st.info("ℹ️ No hay equipos calendarizados todavía. Vaya a la **Pestaña 1** para programar por lotes.")
+        else:
+            tabla_calendario_vista = []
+            for item in st.session_state.equipos_calendarizados:
+                serie_eq = item["serie"]
+                servicios_eq = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_eq]
+                
+                if servicios_eq:
+                    estatus_real = servicios_eq[0].get("estatus", "Pendiente")
+                else:
+                    estatus_real = "⚪ Sin Captura (Neutro)"
+
+                tabla_calendario_vista.append({
+                    "Etapa": item["etapa"],
+                    "Contrato": item.get("contrato", "N/D"),
+                    "OOAD / Sede": item["ooad"],
+                    "Inventario": item["inventario"],
+                    "No. Serie": serie_eq,
+                    "Fecha Programada": item["fecha_programada"],
+                    "Estatus / Semáforo Pantone": estatus_real
+                })
+
+            df_cal_view = pd.DataFrame(tabla_calendario_vista)
+            st.dataframe(df_cal_view, use_container_width=True, hide_index=True)
+
+    # ==========================================
+    # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
+    # ==========================================
+    with tab_cmms3:
+        st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
+        st.markdown("Selecciona el montacargas para consultar su historial completo y registrar el servicio real.")
+
         opciones_equipos_cmms = {}
         for idx, row in df_padron.iterrows():
             inv_val = str(row.get(c_inv_key, "N/D"))
@@ -333,7 +383,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             label_eq = f"Sede: {ooad_val} | Inv: {inv_val} | Serie: {ser_val}"
             opciones_equipos_cmms[label_eq] = row
 
-        equipo_elegido_label = st.selectbox("Seleccione el equipo:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo")
+        equipo_elegido_label = st.selectbox("Seleccione el equipo por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo_v3")
         
         if equipo_elegido_label:
             eq_data = opciones_equipos_cmms[equipo_elegido_label]
@@ -346,20 +396,19 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             col_info2.metric("Número de Serie", serie_sel)
             col_info3.metric("Sede / OOAD", str(eq_data.get(c_ooad_key, "N/D")))
             
-            # Formulario de captura de servicio
             st.markdown("#### 📝 Capturar Orden de Servicio y Estatus Pantone")
-            with st.form(f"form_captura_ot_{serie_sel}"):
+            with st.form(f"form_captura_ot_{serie_sel}_v3"):
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
-                    fecha_servicio = st.date_input("Fecha Real del Servicio", value=date.today())
+                    fecha_servicio = st.date_input("Fecha Real del Cierre Físico", value=date.today())
                     nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
                 with col_f2:
                     estatus_pantone = st.selectbox(
                         "Estatus del Servicio (Aplica Color Pantone):",
                         [
-                            "🟢 Concluido (100%)",
-                            "🟡 Inconcluso / Falla",
-                            "🔴 No Realizado"
+                            "🟢 Concluido (100%) - Verde Pantone 561 C (#005A36)",
+                            "🟡 Inconcluso / Falla - Amarillo Pantone 468 C (#C2B280)",
+                            "🔴 No Realizado - Rojo Pantone 7420 C (#8A1C2A)"
                         ]
                     )
                     nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
@@ -381,38 +430,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
                     st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
 
-            # Historial de servicios de este equipo
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
             historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
             if historial_equipo:
-                df_hist_eq = pd.DataFrame(historial_equipo)
-                st.dataframe(df_hist_eq, use_container_width=True, hide_index=True)
-            else:
-                st.info("ℹ️ No hay servicios registrados localmente para esta unidad. Utiliza el formulario superior para registrar el primero.")
-
-    # ==========================================
-    # PESTAÑA 3: BANDEJA DE INCONCLUSOS
-    # ==========================================
-    with tab_cmms3:
-        st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
-        inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
-        
-        if inconclusos_locales:
-            df_inc = pd.DataFrame(inconclusos_locales)
-            st.dataframe(df_inc, use_container_width=True, hide_index=True)
-        else:
-            st.success("🟢 No hay unidades con servicios inconclusos o no realizados registrados en la sesión actual.")
-
-# ==========================================
-# MÓDULO 5: EDITAR / REGISTRAR UNIDAD
-# ==========================================
-elif menu == "📝 Editar / Registrar Unidad":
-    st.subheader("📝 Registro o Modificación de Unidades en Padrón")
-    st.info("Utilice este módulo para dar de alta nuevas unidades o actualizar la información general de la flota en Supabase.")
-    with st.form("form_reg_unidad"):
-        nuevo_inv = st.text_input("Número de Inventario")
-        nueva_serie = st.text_input("Número de Serie")
-        nueva_ooad = st.text_input("OOAD / Estado")
-        submit_reg = st.form_submit_button("Guardar en Padrón General")
-        if submit_reg:
-            st.success(f"Unidad con inventario {nuevo_inv} procesada correctamente.")
+                df
