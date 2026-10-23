@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos limpios sobre fondo claro con acentos institucionales sutiles y forzado de inputs legibles
+# Estilos limpios sobre fondo claro con acentos institucionales y forzado de inputs legibles
 st.markdown("""
     <style>
     .stApp {
@@ -127,9 +127,12 @@ if df_padron.empty:
     st.warning("La base de datos se encuentra vacía o hay un problema de conexión con Supabase.")
     st.stop()
 
-# Inicializar estados en session_state para registros de mantenimiento locales si es necesario
+# Inicializar estados en session_state para registros de mantenimiento locales y calendarización por lotes
 if "historial_mantenimientos_local" not in st.session_state:
     st.session_state.historial_mantenimientos_local = []
+
+if "equipos_calendarizados" not in st.session_state:
+    st.session_state.equipos_calendarizados = []
 
 # ==========================================
 # 3. NAVEGACIÓN MODULAR (5 MÓDULOS)
@@ -259,17 +262,18 @@ elif menu == "🎇 Ficha Digital por Equipo":
             st.dataframe(pd.DataFrame(data_detalle), use_container_width=True, hide_index=True)
 
 # ==========================================
-# MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS) - CALENDARIO & EXPEDIENTE
+# MÓDULO 4: GESTIÓN DE MANTENIMIENTO (CMMS)
 # ==========================================
 elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
-    st.subheader("🛠️ Módulo 4: Calendario CMMS & Expediente de Servicios")
-    st.markdown("Control operativo con semáforo Pantone estricto (activado únicamente tras captura explícita) y enlace directo al expediente.")
+    st.subheader("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
+    st.markdown("Control operativo, calendarización por lotes, calendario activo con semáforo Pantone y acceso directo al expediente.")
 
-    # Pestañas del CMMS
-    tab_cmms1, tab_cmms2, tab_cmms3 = st.tabs([
-        "📅 Calendario & Listado por OOAD",
-        "📂 Expediente y Captura de Servicio en Sitio",
-        "🔴 Bandeja de Inconclusos / Alertas"
+    # Pestañas completas del CMMS
+    tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
+        "📂 1. Calendarización por Lotes",
+        "📅 2. Calendario Activo & Semáforo Pantone",
+        "📂 3. Expediente y Captura de Servicio en Sitio",
+        "🔴 4. Bandeja de Inconclusos"
     ])
 
     cols_p = df_padron.columns.tolist()
@@ -278,53 +282,83 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_ooad_key = next((c for c in cols_p if "ooad" in c.lower()), "ooad_estado")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN Y VISTA POR OOAD
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES
     # ==========================================
     with tab_cmms1:
-        st.markdown("### 🗺️ Vista de Unidades Agrupadas por OOAD / Sede")
-        
-        ooads_disponibles = df_padron[c_ooad_key].unique() if c_ooad_key in df_padron.columns else ["General"]
-        ooad_seleccionada = st.selectbox("Filtrar por OOAD / Sede:", options=["Todas las OOADs"] + list(ooads_disponibles))
-        
-        df_vista_cal = df_padron.copy()
-        if ooad_seleccionada != "Todas las OOADs":
-            df_vista_cal = df_vista_cal[df_vista_cal[c_ooad_key] == ooad_seleccionada]
+        st.subheader("Configuração y Calendarización por Lotes y OOAD")
+        st.markdown("Selecciona las sedes o bloques de unidades para programar las fechas teóricas de mantenimiento preventivo.")
 
-        st.markdown(f"**Unidades en la Sede seleccionada:** {len(df_vista_cal)}")
-        
-        # Mostrar tabla interactiva con colores y estado del semáforo Pantone
-        tabla_resumen = []
-        for idx, row in df_vista_cal.iterrows():
-            inv = row.get(c_inv_key, "N/D")
-            ser = row.get(c_ser_key, "N/D")
-            ooad = row.get(c_ooad_key, "N/D")
+        catalogo_sedes_disponibles = df_padron[c_ooad_key].unique() if c_ooad_key in df_padron.columns else []
+
+        with st.form("form_calendarizacion_lotes"):
+            etapa_sel = st.selectbox("Seleccione la Etapa Contractual:", ["Etapa 1 (Histórico)", "Etapa 2 (Activa)", "Etapa 3 (Activa)", "Etapa 4 (Futura)"])
+            sedes_lote = st.multiselect("Seleccione las OOADs / Sedes a calendarizar en bloque:", options=list(catalogo_sedes_disponibles))
+            fecha_teorica_lote = st.date_input("Fecha Teórica Programada para el Lote", value=date.today())
             
-            # Buscar si tiene servicios registrados
-            servicios_unidad = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == ser]
-            if servicios_unidad:
-                ultimo_estatus = servicios_unidad[0].get("estatus", "Pendiente")
-            else:
-                ultimo_estatus = "Sin Captura (Neutro)"
-                
-            tabla_resumen.append({
-                "OOAD / Sede": ooad,
-                "No. Inventario": inv,
-                "No. Serie": ser,
-                "Último Estatus / Semáforo": ultimo_estatus
-            })
-            
-        df_res_presentacion = pd.DataFrame(tabla_resumen)
-        st.dataframe(df_res_presentacion, use_container_width=True, hide_index=True)
-        st.info("💡 **Regla de Semáforo:** Los colores Pantone (Verde 561 C, Amarillo 468 C, Rojo 7420 C) se activan exclusivamente al realizar la captura explícita en la pestaña contigua.")
+            submitted_lote = st.form_submit_button("Guardar Calendarización del Lote")
+            if submitted_lote and sedes_lote:
+                contador_registros = 0
+                for sede in sedes_lote:
+                    unidades_sede = df_padron[df_padron[c_ooad_key] == sede]
+                    for _, u_row in unidades_sede.iterrows():
+                        item_cal = {
+                            "etapa": etapa_sel,
+                            "ooad": sede,
+                            "inventario": str(u_row.get(c_inv_key, "")),
+                            "serie": str(u_row.get(c_ser_key, "")),
+                            "fecha_programada": str(fecha_teorica_lote)
+                        }
+                        if item_cal not in st.session_state.equipos_calendarizados:
+                            st.session_state.equipos_calendarizados.append(item_cal)
+                            contador_registros += 1
+                st.success(f"✅ Se han calendarizado exitosamente {contador_registros} unidades correspondientes a las sedes seleccionadas.")
+            elif submitted_lote:
+                st.warning("⚠️ Selecciona al menos una sede para guardar el lote.")
+
+        if st.session_state.equipos_calendarizados:
+            st.markdown("#### 📋 Lotes y Unidades Calendarizadas Actualmente")
+            st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
 
     # ==========================================
-    # PESTAÑA 2: EXPEDIENTE Y CAPTURA DE SERVICIO DIRECTA
+    # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
     # ==========================================
     with tab_cmms2:
-        st.markdown("### 📂 Acceso Directo al Expediente & Registro de Orden de Trabajo")
-        st.markdown("Seleccione el montacargas para consultar su historial o registrar un nuevo servicio en sitio.")
+        st.markdown("### 📅 Calendario Operativo & Semáforo de Cumplimiento (Pantone)")
+        st.markdown("Las fechas futuras o pendientes permanecen en estatus **Neutro**. Los colores se activan estrictamente tras la captura en sitio.")
 
-        # Selector de montacargas por Serie / Inventario
+        if not st.session_state.equipos_calendarizados:
+            st.info("ℹ️ No hay equipos calendarizados todavía. Vaya a la **Pestaña 1: Calendarización por Lotes** para programar las fechas.")
+        else:
+            tabla_calendario_vista = []
+            for item in st.session_state.equipos_calendarizados:
+                serie_eq = item["serie"]
+                # Buscar último servicio capturado para este equipo
+                servicios_eq = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_eq]
+                
+                if servicios_eq:
+                    estatus_real = servicios_eq[0].get("estatus", "Pendiente")
+                else:
+                    estatus_real = "⚪ Sin Captura (Neutro)"
+
+                tabla_calendario_vista.append({
+                    "Etapa": item["etapa"],
+                    "OOAD / Sede": item["ooad"],
+                    "Inventario": item["inventario"],
+                    "No. Serie": serie_eq,
+                    "Fecha Programada": item["fecha_programada"],
+                    "Estatus / Semáforo Pantone": estatus_real
+                })
+
+            df_cal_view = pd.DataFrame(tabla_calendario_vista)
+            st.dataframe(df_cal_view, use_container_width=True, hide_index=True)
+
+    # ==========================================
+    # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
+    # ==========================================
+    with tab_cmms3:
+        st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
+        st.markdown("Selecciona el montacargas para consultar su historial completo y registrar el servicio real con sus firmas y archivos.")
+
         opciones_equipos_cmms = {}
         for idx, row in df_padron.iterrows():
             inv_val = str(row.get(c_inv_key, "N/D"))
@@ -333,7 +367,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             label_eq = f"Sede: {ooad_val} | Inv: {inv_val} | Serie: {ser_val}"
             opciones_equipos_cmms[label_eq] = row
 
-        equipo_elegido_label = st.selectbox("Seleccione el equipo:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo")
+        equipo_elegido_label = st.selectbox("Seleccione el equipo por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo_v2")
         
         if equipo_elegido_label:
             eq_data = opciones_equipos_cmms[equipo_elegido_label]
@@ -348,10 +382,10 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             
             # Formulario de captura de servicio
             st.markdown("#### 📝 Capturar Orden de Servicio y Estatus Pantone")
-            with st.form(f"form_captura_ot_{serie_sel}"):
+            with st.form(f"form_captura_ot_{serie_sel}_v2"):
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
-                    fecha_servicio = st.date_input("Fecha Real del Servicio", value=date.today())
+                    fecha_servicio = st.date_input("Fecha Real del Cierre Físico", value=date.today())
                     nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
                 with col_f2:
                     estatus_pantone = st.selectbox(
@@ -379,7 +413,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "observaciones": observaciones_ot
                     }
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
-                    st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
+                    st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario y el expediente se han actualizado.")
 
             # Historial de servicios de este equipo
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
@@ -391,10 +425,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.info("ℹ️ No hay servicios registrados localmente para esta unidad. Utiliza el formulario superior para registrar el primero.")
 
     # ==========================================
-    # PESTAÑA 3: BANDEJA DE INCONCLUSOS
+    # PESTAÑA 4: BANDEJA DE INCONCLUSOS
     # ==========================================
-    with tab_cmms3:
+    with tab_cmms4:
         st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
+        st.markdown("Listado de unidades con incidencias o servicios no realizados que requieren atención prioritaria.")
+        
         inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
         
         if inconclusos_locales:
