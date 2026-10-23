@@ -438,6 +438,30 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.dataframe(df_hist_eq, use_container_width=True, hide_index=True)
             else:
                 st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
+                # Historial de servicios de este equipo con opción de borrado
+            st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
+            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
+            
+            if historial_equipo:
+                for i, serv in enumerate(historial_equipo):
+                    cols_hist = st.columns([5, 1])
+                    with cols_hist[0]:
+                        st.markdown(
+                            f"🔹 **Fecha:** {serv['fecha']} | "
+                            f"**Estatus:** {serv['estatus']} | "
+                            f"**Técnico:** {serv['tecnico']} | "
+                            f"**Firmante:** {serv['firmante']}\n\n"
+                            f"_Obs: {serv['observaciones']}_"
+                        )
+                    with cols_hist[1]:
+                        # Botón para eliminar el registro equivocado de la sesión
+                        if st.button("🗑️ Borrar", key=f"btn_del_{serie_sel}_{i}"):
+                            st.session_state.historial_mantenimientos_local.remove(serv)
+                            st.success("✅ ¡Registro eliminado correctamente! El calendario se ha actualizado.")
+                            st.rerun()
+                    st.markdown("---")
+            else:
+                st.info("ℹ️ No hay servicios registrados localmente para esta unidad. Utiliza el formulario superior para registrar el primero.")
 
     # ==========================================
     # PESTAÑA 4: BANDEJA DE INCONCLUSOS
