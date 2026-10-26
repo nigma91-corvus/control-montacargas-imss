@@ -602,36 +602,54 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 
                 submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
             
-            if submitted_ot:
-                nuevo_registro = {
-                    "tipo_servicio": tipo_etiqueta,
-                    "etapa": etapa_asociada,
-                    "contrato": contrato_asociado,
-                    "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
-                    "serie": serie_sel,
-                    "inventario": inv_sel,
-                    "fecha": str(fecha_servicio),
-                    "tecnico": nombre_tecnico,
-                    "estatus": estatus_pantone,
-                    "firmante": nombre_firmante,
-                    "observaciones": observaciones_ot
-                }
-                
-                st.write("📦 Datos listos para enviar:", nuevo_registro)
-                
-                try:
-                    response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
-                    st.write("📡 Respuesta de Supabase:", response)
+            submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
+                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
+                if submitted_ot:
+                    nuevo_registro = {
+                        "tipo_servicio": tipo_etiqueta,
+                        "etapa": etapa_asociada,
+                        "contrato": contrato_asociado,
+                        "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
+                        "serie": serie_sel,
+                        "inventario": inv_sel,
+                        "fecha": str(fecha_servicio),
+                        "tecnico": nombre_tecnico,
+                        "estatus": estatus_pantone,
+                        "firmante": nombre_firmante,
+                        "observaciones": observaciones_ot
+                    }
                     
-                    st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
-                    st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
-                except Exception as err_db:
-                    st.error(f"❌ Error detallado de Supabase: {str(err_db)}")
-                
-                if "serie_reprogramar_activa" in st.session_state:
-                    del st.session_state["serie_reprogramar_activa"]
+                    try:
+                        # 1. Guardar el historial en Supabase
+                        supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
+                        st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
+                        
+                        # ==========================================
+                        # 2. LÓGICA DE LIBERACIÓN DE CALENDARIO VENCIDO
+                        # ==========================================
+                        # Tanto si concluyó como si quedó inconcluso, la visita de esta fecha ya se cerró.
+                        # Lo removemos del lote calendarizado activo para que la unidad NO se quede atrapada 
+                        # y pueda ser considerada en futuros calendarios si la operación lo requiere.
+                        st.session_state.equipos_calendarizados = [
+                            item for item in st.session_state.equipos_calendarizados 
+                            if str(item.get("serie", "")).strip() != str(serie_sel).strip()
+                        ]
+                        
+                        # Remover de la tabla de lotes activos en Supabase
+                        supabase.table("calendarizacion_lotes").delete().eq("serie", str(serie_sel)).execute()
+                        
+                        if "Concluido" in estatus_pantone:
+                            st.success(f"✅ ¡Servicio CONCLUIDO para la serie {serie_sel}! Unidad liberada exitosamente.")
+                        else:
+                            st.warning(f"⚠️ Servicio registrado como {estatus_pantone}. La unidad se ha enviado a la Bandeja de Inconclusos (Tab 4) para seguimiento, y el calendario actual ha quedado libre para futuras programaciones.")
+                            
+                    except Exception as err_db:
+                        st.error(f"❌ Error al procesar en Supabase: {str(err_db)}")
                     
-                st.rerun()
+                    if "serie_reprogramar_activa" in st.session_state:
+                        del st.session_state["serie_reprogramar_activa"]
+                        
+                    st.rerun()
 
             st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
             historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
