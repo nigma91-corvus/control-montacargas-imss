@@ -305,7 +305,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
         st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
-        # 1. PRIMER FILTRO FUERA DEL FORMULARIO
         etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
         etapa_seleccionada = st.selectbox(
             "📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", 
@@ -372,9 +371,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
-        # ==========================================
-        # LISTADO ACUMULADO + MÉTRICA & SUPABASE
-        # ==========================================
         st.markdown("---")
         
         if st.session_state.equipos_calendarizados:
@@ -444,7 +440,100 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     # ==========================================
     # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
     # ==========================================
-    # Formulario de Captura de la Orden de Trabajo
+    with tab_cmms3:
+        st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
+        st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada, atender inconclusos o realizar un reporte de fallo.")
+
+        serie_preseleccionada = st.session_state.get("serie_reprogramar_activa", None)
+
+        tipos_disponibles = [
+            "📅 Mantenimiento Calendarizado (Servicio Programado)",
+            "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)",
+            "🔄 Seguimiento / Conclusión de Servicio Inconcluso"
+        ]
+        
+        default_idx = 2 if serie_preseleccionada else 0
+        tipo_servicio_sel = st.selectbox(
+            "📌 Seleccione el Tipo de Servicio a Registrar:",
+            options=tipos_disponibles,
+            index=default_idx,
+            key="select_tipo_servicio_ot"
+        )
+
+        serie_sel = ""
+        inv_sel = ""
+        eq_data = None
+        fecha_sugerida = date.today()
+        etapa_asociada = "N/D"
+        contrato_asociado = "N/D"
+
+        if "Calendarizado" in tipo_servicio_sel:
+            if not st.session_state.equipos_calendarizados:
+                st.warning("⚠️ No hay equipos calendarizados en la Lista Acumulada (Pestaña 1).")
+            else:
+                fechas_disponibles = sorted(list(set(item["fecha_programada"] for item in st.session_state.equipos_calendarizados)))
+                fecha_elegida_cal = st.selectbox("📅 1. Seleccione la Fecha Programada:", options=fechas_disponibles, key="sel_fecha_calendarizada_ot")
+                
+                equipos_en_fecha = [item for item in st.session_state.equipos_calendarizados if item["fecha_programada"] == fecha_elegida_cal]
+                
+                opciones_cal_label = {}
+                for item in equipos_en_fecha:
+                    label = f"Sede: {item['ooad']} | Inv: {item['inventario']} | Serie: {item['serie']} | Etapa: {item['etapa']}"
+                    opciones_cal_label[label] = item
+                
+                eq_label_elegido = st.selectbox("🚜 2. Seleccione el equipo programado para esta fecha:", options=list(opciones_cal_label.keys()), key="sel_eq_por_fecha")
+                
+                if eq_label_elegido:
+                    item_elegido = opciones_cal_label[eq_label_elegido]
+                    serie_sel = item_elegido["serie"]
+                    inv_sel = item_elegido["inventario"]
+                    etapa_asociada = item_elegido["etapa"]
+                    contrato_asociado = item_elegido.get("contrato", "N/D")
+                    try:
+                        fecha_sugerida = datetime.strptime(item_elegido["fecha_programada"], "%Y-%m-%d").date()
+                    except:
+                        fecha_sugerida = date.today()
+                    eq_data = {"ooad": item_elegido["ooad"]}
+
+        elif "Inconcluso" in tipo_servicio_sel:
+            inconclusos_reg = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
+            
+            if not inconclusos_reg:
+                st.success("🟢 No hay servicios inconclusos pendientes de seguimiento.")
+            else:
+                opciones_inc = {}
+                for s in inconclusos_reg:
+                    lbl = f"Serie: {s['serie']} | Inv: {s['inventario']} | Última Fecha: {s['fecha']} | Estatus: {s['estatus']}"
+                    opciones_inc[lbl] = s
+                
+                sel_inc_lbl = st.selectbox("🔄 Seleccione el equipo inconcluso a dar continuidad:", options=list(opciones_inc.keys()), key="sel_inc_seguimiento")
+                if sel_inc_lbl:
+                    reg_ant = opciones_inc[sel_inc_lbl]
+                    serie_sel = reg_ant["serie"]
+                    inv_sel = reg_ant["inventario"]
+                    etapa_asociada = reg_ant.get("etapa", "N/D")
+                    contrato_asociado = reg_ant.get("contrato", "N/D")
+                    eq_data = {"ooad": "Seguimiento en Sitio"}
+                    st.info(f"💡 **Nota:** Está atendiendo la continuidad del servicio previo con observaciones: *'{reg_ant.get('observaciones','')}'*")
+
+        else:
+            opciones_equipos_cmms = {}
+            for idx, row in df_padron.iterrows():
+                inv_v = str(row.get(c_inv_key, "N/D"))
+                ser_v = str(row.get(c_ser_key, "N/D"))
+                ooad_v = str(row.get(c_ooad_key, "N/D"))
+                label_eq = f"Sede: {ooad_v} | Inv: {inv_v} | Serie: {ser_v}"
+                opciones_equipos_cmms[label_eq] = row
+
+            equipo_elegido_label = st.selectbox("🚜 Seleccione el equipo del Padrón General por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_fallo_general")
+            
+            if equipo_elegido_label:
+                eq_data = opciones_equipos_cmms[equipo_elegido_label]
+                serie_sel = str(eq_data.get(c_ser_key, ""))
+                inv_sel = str(eq_data.get(c_inv_key, ""))
+                etapa_asociada = str(eq_data.get("etapa_contractual", "N/D"))
+                contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
+
         if serie_sel:
             st.markdown("---")
             col_info1, col_info2, col_info3 = st.columns(3)
@@ -476,7 +565,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 
                 submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
             
-            # NOTA: El procesamiento va FUERA del "with st.form(...)":
             if submitted_ot:
                 nuevo_registro = {
                     "tipo_servicio": tipo_etiqueta,
@@ -492,14 +580,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     "observaciones": observaciones_ot
                 }
                 
-                # Mostrar datos para diagnóstico en pantalla
                 st.write("📦 Datos listos para enviar:", nuevo_registro)
                 
                 try:
                     response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
                     st.write("📡 Respuesta de Supabase:", response)
                     
-                    # Guardar en memoria local
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
                     st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
                 except Exception as err_db:
@@ -508,7 +594,19 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 if "serie_reprogramar_activa" in st.session_state:
                     del st.session_state["serie_reprogramar_activa"]
                     
-                st.rerun()r", key=f"btn_del_v5_{serie_sel}_{i}"):
+                st.rerun()
+
+            st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
+            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
+            if historial_equipo:
+                for i, serv in enumerate(historial_equipo):
+                    cols_hist = st.columns([5, 1])
+                    with cols_hist[0]:
+                        badge_tipo = serv.get('tipo_servicio', 'Servicio')
+                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
+                        st.caption(f"Obs: {serv['observaciones']}")
+                    with cols_hist[1]:
+                        if st.button("🗑️ Borrar", key=f"btn_del_v5_{serie_sel}_{i}"):
                             st.session_state.historial_mantenimientos_local.remove(serv)
                             st.success("✅ ¡Registro eliminado correctamente!")
                             st.rerun()
