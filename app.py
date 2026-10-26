@@ -444,39 +444,77 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     # ==========================================
     # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
     # ==========================================
-    submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
-                if submitted_ot:
-                    nuevo_registro = {
-                        "tipo_servicio": tipo_etiqueta,
-                        "etapa": etapa_asociada,
-                        "contrato": contrato_asociado,
-                        "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
-                        "serie": serie_sel,
-                        "inventario": inv_sel,
-                        "fecha": str(fecha_servicio),
-                        "tecnico": nombre_tecnico,
-                        "estatus": estatus_pantone,
-                        "firmante": nombre_firmante,
-                        "observaciones": observaciones_ot
-                    }
+    # Formulario de Captura de la Orden de Trabajo
+        if serie_sel:
+            st.markdown("---")
+            col_info1, col_info2, col_info3 = st.columns(3)
+            col_info1.metric("Inventario", inv_sel)
+            col_info2.metric("Número de Serie", serie_sel)
+            col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
+            
+            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
+            st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
+            
+            with st.form(f"form_captura_ot_{serie_sel}_v5"):
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    fecha_servicio = st.date_input("Fecha de Visita / Cierre de Continuidad", value=fecha_sugerida)
+                    nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
+                with col_f2:
+                    estatus_pantone = st.selectbox(
+                        "Estatus Actualizado",
+                        [
+                            "🟢 Concluido (100%)",
+                            "🟡 Sigue Inconcluso / Requiere Nueva Refacción",
+                            "🔴 No Realizado"
+                        ]
+                    )
+                    nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
+                
+                observaciones_ot = st.text_area("Diagnóstico de Continuidad y Acciones Realizadas en esta Visita")
+                pdf_evidencia = st.file_uploader("Cargar Nueva Orden de Trabajo / Acta Firmada (PDF)", type=["pdf", "png", "jpg"])
+                
+                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
+            
+            # NOTA: El procesamiento va FUERA del "with st.form(...)":
+            if submitted_ot:
+                nuevo_registro = {
+                    "tipo_servicio": tipo_etiqueta,
+                    "etapa": etapa_asociada,
+                    "contrato": contrato_asociado,
+                    "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
+                    "serie": serie_sel,
+                    "inventario": inv_sel,
+                    "fecha": str(fecha_servicio),
+                    "tecnico": nombre_tecnico,
+                    "estatus": estatus_pantone,
+                    "firmante": nombre_firmante,
+                    "observaciones": observaciones_ot
+                }
+                
+                # Mostrar datos para diagnóstico en pantalla
+                st.write("📦 Datos listos para enviar:", nuevo_registro)
+                
+                try:
+                    response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
+                    st.write("📡 Respuesta de Supabase:", response)
                     
-                    # Mostrar qué vamos a enviar para verificar los datos
-                    st.write("📦 Datos listos para enviar:", nuevo_registro)
+                    # Guardar en memoria local
+                    st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
+                    st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
+                except Exception as err_db:
+                    st.error(f"❌ Error detallado de Supabase: {str(err_db)}")
+                
+                if "serie_reprogramar_activa" in st.session_state:
+                    del st.session_state["serie_reprogramar_activa"]
                     
-                    try:
-                        # Ejecutar inserción e imprimir la respuesta de la API
-                        response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
-                        st.write("📡 Respuesta de Supabase:", response)
-                        
-                        if response.data:
-                            st.success(f"✅ ¡Guardado exitoso en Supabase para la serie {serie_sel}!")
-                        else:
-                            st.warning("⚠️ Supabase ejecutó la consulta pero no regresó datos confirmados.")
-                            
-                    except Exception as err_db:
-                        st.error(f"❌ Error crítico de conexión o esquema: {str(err_db)}")
-                    
-                    st.stop() # Pausa aquí para que puedas leer los mensajes en pantalla antes de que recargue
+                st.rerun()r", key=f"btn_del_v5_{serie_sel}_{i}"):
+                            st.session_state.historial_mantenimientos_local.remove(serv)
+                            st.success("✅ ¡Registro eliminado correctamente!")
+                            st.rerun()
+                    st.markdown("---")
+            else:
+                st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
 
     # ==========================================
     # PESTAÑA 4: BANDEJA DE INCONCLUSOS & REPROGRAMACIÓN
