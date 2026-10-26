@@ -444,134 +444,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     # ==========================================
     # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
     # ==========================================
-    with tab_cmms3:
-        st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
-        st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada, atender inconclusos o realizar un reporte de fallo.")
-
-        serie_preseleccionada = st.session_state.get("serie_reprogramar_activa", None)
-
-        tipos_disponibles = [
-            "📅 Mantenimiento Calendarizado (Servicio Programado)",
-            "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)",
-            "🔄 Seguimiento / Conclusión de Servicio Inconcluso"
-        ]
-        
-        default_idx = 2 if serie_preseleccionada else 0
-        tipo_servicio_sel = st.selectbox(
-            "📌 Seleccione el Tipo de Servicio a Registrar:",
-            options=tipos_disponibles,
-            index=default_idx,
-            key="select_tipo_servicio_ot"
-        )
-
-        serie_sel = ""
-        inv_sel = ""
-        eq_data = None
-        fecha_sugerida = date.today()
-        etapa_asociada = "N/D"
-        contrato_asociado = "N/D"
-
-        # RAMA A: Mantenimiento Calendarizado
-        if "Calendarizado" in tipo_servicio_sel:
-            if not st.session_state.equipos_calendarizados:
-                st.warning("⚠️ No hay equipos calendarizados en la Lista Acumulada (Pestaña 1).")
-            else:
-                fechas_disponibles = sorted(list(set(item["fecha_programada"] for item in st.session_state.equipos_calendarizados)))
-                fecha_elegida_cal = st.selectbox("📅 1. Seleccione la Fecha Programada:", options=fechas_disponibles, key="sel_fecha_calendarizada_ot")
-                
-                equipos_en_fecha = [item for item in st.session_state.equipos_calendarizados if item["fecha_programada"] == fecha_elegida_cal]
-                
-                opciones_cal_label = {}
-                for item in equipos_en_fecha:
-                    label = f"Sede: {item['ooad']} | Inv: {item['inventario']} | Serie: {item['serie']} | Etapa: {item['etapa']}"
-                    opciones_cal_label[label] = item
-                
-                eq_label_elegido = st.selectbox("🚜 2. Seleccione el equipo programado para esta fecha:", options=list(opciones_cal_label.keys()), key="sel_eq_por_fecha")
-                
-                if eq_label_elegido:
-                    item_elegido = opciones_cal_label[eq_label_elegido]
-                    serie_sel = item_elegido["serie"]
-                    inv_sel = item_elegido["inventario"]
-                    etapa_asociada = item_elegido["etapa"]
-                    contrato_asociado = item_elegido.get("contrato", "N/D")
-                    try:
-                        fecha_sugerida = datetime.strptime(item_elegido["fecha_programada"], "%Y-%m-%d").date()
-                    except:
-                        fecha_sugerida = date.today()
-                    eq_data = {"ooad": item_elegido["ooad"]}
-
-        # RAMA B: Seguimiento a Inconclusos
-        elif "Inconcluso" in tipo_servicio_sel:
-            inconclusos_reg = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
-            
-            if not inconclusos_reg:
-                st.success("🟢 No hay servicios inconclusos pendientes de seguimiento.")
-            else:
-                opciones_inc = {}
-                for s in inconclusos_reg:
-                    lbl = f"Serie: {s['serie']} | Inv: {s['inventario']} | Última Fecha: {s['fecha']} | Estatus: {s['estatus']}"
-                    opciones_inc[lbl] = s
-                
-                sel_inc_lbl = st.selectbox("🔄 Seleccione el equipo inconcluso a dar continuidad:", options=list(opciones_inc.keys()), key="sel_inc_seguimiento")
-                if sel_inc_lbl:
-                    reg_ant = opciones_inc[sel_inc_lbl]
-                    serie_sel = reg_ant["serie"]
-                    inv_sel = reg_ant["inventario"]
-                    etapa_asociada = reg_ant.get("etapa", "N/D")
-                    contrato_asociado = reg_ant.get("contrato", "N/D")
-                    eq_data = {"ooad": "Seguimiento en Sitio"}
-                    st.info(f"💡 **Nota:** Está atendiendo la continuidad del servicio previo con observaciones: *'{reg_ant.get('observaciones','')}'*")
-
-        # RAMA C: Reporte de Fallo
-        else:
-            opciones_equipos_cmms = {}
-            for idx, row in df_padron.iterrows():
-                inv_v = str(row.get(c_inv_key, "N/D"))
-                ser_v = str(row.get(c_ser_key, "N/D"))
-                ooad_v = str(row.get(c_ooad_key, "N/D"))
-                label_eq = f"Sede: {ooad_v} | Inv: {inv_v} | Serie: {ser_v}"
-                opciones_equipos_cmms[label_eq] = row
-
-            equipo_elegido_label = st.selectbox("🚜 Seleccione el equipo del Padrón General por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_fallo_general")
-            
-            if equipo_elegido_label:
-                eq_data = opciones_equipos_cmms[equipo_elegido_label]
-                serie_sel = str(eq_data.get(c_ser_key, ""))
-                inv_sel = str(eq_data.get(c_inv_key, ""))
-                etapa_asociada = str(eq_data.get("etapa_contractual", "N/D"))
-                contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
-
-        # Formulario de Captura de la Orden de Trabajo
-        if serie_sel:
-            st.markdown("---")
-            col_info1, col_info2, col_info3 = st.columns(3)
-            col_info1.metric("Inventario", inv_sel)
-            col_info2.metric("Número de Serie", serie_sel)
-            col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
-            
-            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
-            st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
-            
-            with st.form(f"form_captura_ot_{serie_sel}_v5"):
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    fecha_servicio = st.date_input("Fecha de Visita / Cierre de Continuidad", value=fecha_sugerida)
-                    nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
-                with col_f2:
-                    estatus_pantone = st.selectbox(
-                        "Estatus Actualizado",
-                        [
-                            "🟢 Concluido (100%)",
-                            "🟡 Sigue Inconcluso / Requiere Nueva Refacción",
-                            "🔴 No Realizado"
-                        ]
-                    )
-                    nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
-                
-                observaciones_ot = st.text_area("Diagnóstico de Continuidad y Acciones Realizadas en esta Visita")
-                pdf_evidencia = st.file_uploader("Cargar Nueva Orden de Trabajo / Acta Firmada (PDF)", type=["pdf", "png", "jpg"])
-                
-                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
+    submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
                 if submitted_ot:
                     nuevo_registro = {
                         "tipo_servicio": tipo_etiqueta,
@@ -587,40 +460,23 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "observaciones": observaciones_ot
                     }
                     
-                    # Guardar en memoria local
-                    st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
+                    # Mostrar qué vamos a enviar para verificar los datos
+                    st.write("📦 Datos listos para enviar:", nuevo_registro)
                     
-                    # Intentar guardar en Supabase y mostrar el error exacto si falla
                     try:
+                        # Ejecutar inserción e imprimir la respuesta de la API
                         response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
-                        st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
-                        st.balloons()
-                    except Exception as err_db:
-                        st.error(f"❌ Error detallado de Supabase: {str(err_db)}")
-                        st.stop() # Detiene la ejecución para que puedas leer el mensaje rojo en pantalla
-                    
-                    if "serie_reprogramar_activa" in st.session_state:
-                        del st.session_state["serie_reprogramar_activa"]
+                        st.write("📡 Respuesta de Supabase:", response)
                         
-                    st.rerun()
-
-            st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
-            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
-            if historial_equipo:
-                for i, serv in enumerate(historial_equipo):
-                    cols_hist = st.columns([5, 1])
-                    with cols_hist[0]:
-                        badge_tipo = serv.get('tipo_servicio', 'Servicio')
-                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
-                        st.caption(f"Obs: {serv['observaciones']}")
-                    with cols_hist[1]:
-                        if st.button("🗑️ Borrar", key=f"btn_del_v5_{serie_sel}_{i}"):
-                            st.session_state.historial_mantenimientos_local.remove(serv)
-                            st.success("✅ ¡Registro eliminado correctamente!")
-                            st.rerun()
-                    st.markdown("---")
-            else:
-                st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
+                        if response.data:
+                            st.success(f"✅ ¡Guardado exitoso en Supabase para la serie {serie_sel}!")
+                        else:
+                            st.warning("⚠️ Supabase ejecutó la consulta pero no regresó datos confirmados.")
+                            
+                    except Exception as err_db:
+                        st.error(f"❌ Error crítico de conexión o esquema: {str(err_db)}")
+                    
+                    st.stop() # Pausa aquí para que puedas leer los mensajes en pantalla antes de que recargue
 
     # ==========================================
     # PESTAÑA 4: BANDEJA DE INCONCLUSOS & REPROGRAMACIÓN
