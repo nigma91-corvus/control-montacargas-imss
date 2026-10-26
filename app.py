@@ -404,6 +404,45 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             st.session_state.equipos_calendarizados = df_editado.to_dict("records")
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
+            # ==========================================
+    # REPORTE DE UNIDADES PENDIENTES DE CALENDARIZAR
+    # ==========================================
+    st.markdown("---")
+    st.markdown("### 📋 Reporte de Unidades Pendientes por Calendarizar")
+    st.markdown("💡 Conteo exacto y ubicación de los montacargas del padrón general que **aún no tienen fecha de servicio asignada**.")
+
+    # 1. Extraer series ya calendarizadas en sesión
+    series_calendarizadas = set(str(item.get("serie", "")).strip() for item in st.session_state.equipos_calendarizados)
+
+    # 2. Filtrar del padrón general las que NO están calendarizadas
+    df_pendientes = df_padron[~df_padron[c_ser_key].astype(str).str.strip().isin(series_calendarizadas)].copy()
+
+    total_pendientes = len(df_pendientes)
+    total_padron = len(df_padron)
+    porcentaje_avance = ((total_padron - total_pendientes) / total_padron * 100) if total_padron > 0 else 0
+
+    # 3. Mostrar métricas de control generales
+    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1.metric("Total en Padrón General", f"{total_padron} Unidades")
+    col_p2.metric("Pendientes de Calendarizar", f"{total_pendientes} Unidades", delta=f"-{total_pendientes}", delta_color="inverse")
+    col_p3.metric("Avance de Calendarización", f"{porcentaje_avance:.1f}%")
+
+    if total_pendientes > 0:
+        # Agrupar pendientes por Sede / OOAD para ver cantidad por ubicación
+        df_resumen_pendientes = df_pendientes.groupby(col_ooad).agg(
+            Unidades_Pendientes=(c_inv_key, "count")
+        ).reset_index()
+        df_resumen_pendientes.columns = ["Sede / OOAD", "Unidades Pendientes"]
+        df_resumen_pendientes = df_resumen_pendientes.sort_values(by="Unidades Pendientes", ascending=False)
+
+        st.markdown("#### 📍 Desglose de Unidades Pendientes por Sede (OOAD)")
+        st.dataframe(df_resumen_pendientes, use_container_width=True, hide_index=True)
+
+        # Opcional: Expandible para ver el detalle de serie, inventario y etapa de los pendientes
+        with st.expander("🔍 Ver listado detallado de las unidades pendientes"):
+            st.dataframe(df_pendientes, use_container_width=True, hide_index=True)
+    else:
+        st.success("🎉 ¡Excelente noticia! El 100% de las unidades del padrón general ya se encuentran calendarizadas.")
 
     # ==========================================
     # PESTAÑA 2: CALENDARIO RESUMIDO POR DÍA
