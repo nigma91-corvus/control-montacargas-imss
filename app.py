@@ -587,13 +587,17 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "observaciones": observaciones_ot
                     }
                     
+                    # Guardar en memoria local
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
                     
+                    # Intentar guardar en Supabase y mostrar el error exacto si falla
                     try:
-                        supabase.table("historial_mantenimientos").insert([nuevo_registro]).execute()
+                        response = supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
                         st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
+                        st.balloons()
                     except Exception as err_db:
-                        st.error(f"❌ Error al guardar en Supabase: {err_db}")
+                        st.error(f"❌ Error detallado de Supabase: {str(err_db)}")
+                        st.stop() # Detiene la ejecución para que puedas leer el mensaje rojo en pantalla
                     
                     if "serie_reprogramar_activa" in st.session_state:
                         del st.session_state["serie_reprogramar_activa"]
