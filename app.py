@@ -282,13 +282,13 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (JERARQUÍA DINÁMICA)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON EDICIÓN Y ELIMINACIÓN INDIVIDUAL)
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
         st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
-        # 1. PRIMER FILTRO FUERA DEL FORMULARIO (Para que no se resetee al enviar)
+        # 1. PRIMER FILTRO FUERA DEL FORMULARIO (Para que no se resetee al cambiar de opción)
         etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
         etapa_seleccionada = st.selectbox(
             "📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", 
@@ -321,7 +321,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         
         sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[col_ooad].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
 
-        # Formulario únicamente para el multiselect, fecha y el botón de acción
+        # Formulario para agregar lotes
         with st.form("form_calendarizacion_lotes_smart"):
             sedes_lote = st.multiselect(
                 f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", 
@@ -362,21 +362,34 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
-        # Listado Acumulado
+        # ==========================================
+        # LISTADO ACUMULADO CON EDICIÓN Y ELIMINACIÓN INDIVIDUAL
+        # ==========================================
         st.markdown("---")
         st.markdown("#### 📋 Listado Acumulado de Unidades Calendarizadas")
+        st.markdown("💡 *Nota: Puedes hacer clic en cualquier celda para corregir un dato o eliminar filas directamente en la tabla si te equivocaste.*")
         
         if st.session_state.equipos_calendarizados:
-            st.markdown(f"Total de unidades acumuladas en la sesión: **{len(st.session_state.equipos_calendarizados)}**")
-            
             col_b1, col_b2 = st.columns([4, 1])
             with col_b2:
-                if st.button("🗑️ Vaciar Lista Acumulada"):
+                if st.button("🗑️ Vaciar Toda la Lista"):
                     st.session_state.equipos_calendarizados = []
                     st.success("Lista acumulada vaciada correctamente.")
                     st.rerun()
 
-            st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
+            # Convertir a DataFrame y usar st.data_editor para permitir correcciones individuales
+            df_acumulado = pd.DataFrame(st.session_state.equipos_calendarizados)
+            
+            df_editado = st.data_editor(
+                df_acumulado,
+                num_rows="dynamic",
+                use_container_width=True,
+                hide_index=True,
+                key="editor_equipos_calendarizados"
+            )
+            
+            # Sincronizar los cambios realizados en la tabla interactiva de vuelta al session_state
+            st.session_state.equipos_calendarizados = df_editado.to_dict("records")
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
 
