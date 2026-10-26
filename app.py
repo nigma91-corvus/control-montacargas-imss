@@ -404,8 +404,22 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             with col_b1:
                 if st.button("☁️ Sincronizar Lotes con Supabase"):
                     try:
+                        import math
+                        
+                        # Limpiar valores NaN o flotantes no válidos para JSON
+                        lotes_limpios = []
+                        for item in st.session_state.equipos_calendarizados:
+                            item_limpio = {}
+                            for k, v in item.items():
+                                if pd.isna(v) or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
+                                    item_limpio[k] = ""
+                                else:
+                                    item_limpio[k] = v
+                            lotes_limpios.append(item_limpio)
+
+                        # Limpiar y reinsertar con datos 100% limpios
                         supabase.table("calendarizacion_lotes").delete().neq("id", 0).execute()
-                        supabase.table("calendarizacion_lotes").insert(st.session_state.equipos_calendarizados).execute()
+                        supabase.table("calendarizacion_lotes").insert(lotes_limpios).execute()
                         st.success("✅ ¡Lotes calendarizados sincronizados con éxito en Supabase!")
                     except Exception as e:
                         st.error(f"❌ Error al guardar lotes: {e}")
