@@ -411,13 +411,18 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         for item in st.session_state.equipos_calendarizados:
                             item_limpio = {}
                             for k, v in item.items():
+                                
+                                # 🟢 AQUÍ PONES ESTAS DOS LÍNEAS NUEVAS:
+                                if k == "id":
+                                    continue
+                                
                                 if pd.isna(v) or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
                                     item_limpio[k] = ""
                                 else:
                                     item_limpio[k] = v
                             lotes_limpios.append(item_limpio)
 
-                        # Limpiar y reinsertar con datos 100% limpios
+                        # Limpiar y reinsertar con datos limpios
                         supabase.table("calendarizacion_lotes").delete().neq("id", 0).execute()
                         supabase.table("calendarizacion_lotes").insert(lotes_limpios).execute()
                         st.success("✅ ¡Lotes calendarizados sincronizados con éxito en Supabase!")
