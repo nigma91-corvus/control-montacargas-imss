@@ -426,34 +426,90 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     # ==========================================
     with tab_cmms3:
         st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
-        st.markdown("Selecciona el montacargas para consultar su historial completo y registrar el servicio real.")
+        st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada o realizar un reporte de fallo general.")
 
-        opciones_equipos_cmms = {}
-        for idx, row in df_padron.iterrows():
-            inv_val = str(row.get(c_inv_key, "N/D"))
-            ser_val = str(row.get(c_ser_key, "N/D"))
-            ooad_val = str(row.get(c_ooad_key, "N/D"))
-            label_eq = f"Sede: {ooad_val} | Inv: {inv_val} | Serie: {ser_val}"
-            opciones_equipos_cmms[label_eq] = row
+        # 1. Selector del Tipo de Servicio
+        tipo_servicio_sel = st.selectbox(
+            "📌 Seleccione el Tipo de Servicio a Registrar:",
+            [
+                "📅 Mantenimiento Calendarizado (Servicio Programado)",
+                "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)"
+            ],
+            key="select_tipo_servicio_ot"
+        )
 
-        equipo_elegido_label = st.selectbox("Seleccione el equipo por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_cmms_directo_v3")
-        
-        if equipo_elegido_label:
-            eq_data = opciones_equipos_cmms[equipo_elegido_label]
-            serie_sel = str(eq_data.get(c_ser_key, ""))
-            inv_sel = str(eq_data.get(c_inv_key, ""))
+        serie_sel = ""
+        inv_sel = ""
+        eq_data = None
+        fecha_sugerida = date.today()
+        etapa_asociada = "N/D"
+        contrato_asociado = "N/D"
+
+        # RAMA A: Si es Mantenimiento Calendarizado (Filtra por Fecha y Lotes de la Pestaña 1)
+        if "Calendarizado" in tipo_servicio_sel:
+            if not st.session_state.equipos_calendarizados:
+                st.warning("⚠️ No hay equipos calendarizados en la Lista Acumulada (Pestaña 1). Por favor calendarice lotes primero o seleccione 'Reporte de Fallo'.")
+            else:
+                # Extraer fechas únicas disponibles en los equipos calendarizados
+                fechas_disponibles = sorted(list(set(item["fecha_programada"] for item in st.session_state.equipos_calendarizados)))
+                fecha_elegida_cal = st.selectbox("📅 1. Seleccione la Fecha Programada:", options=fechas_disponibles, key="sel_fecha_calendarizada_ot")
+                
+                # Filtrar solo los equipos de esa fecha
+                equipos_en_fecha = [item for item in st.session_state.equipos_calendarizados if item["fecha_programada"] == fecha_elegida_cal]
+                
+                opciones_cal_label = {}
+                for item in equipos_en_fecha:
+                    label = f"Sede: {item['ooad']} | Inv: {item['inventario']} | Serie: {item['serie']} | Etapa: {item['etapa']}"
+                    opciones_cal_label[label] = item
+                
+                eq_label_elegido = st.selectbox("🚜 2. Seleccione el equipo programado para esta fecha:", options=list(opciones_cal_label.keys()), key="sel_eq_por_fecha")
+                
+                if eq_label_elegido:
+                    item_elegido = opciones_cal_label[eq_label_elegido]
+                    serie_sel = item_elegido["serie"]
+                    inv_sel = item_elegido["inventario"]
+                    etapa_asociada = item_elegido["etapa"]
+                    contrato_asociado = item_elegido.get("contrato", "N/D")
+                    try:
+                        fecha_sugerida = datetime.strptime(item_elegido["fecha_programada"], "%Y-%m-%d").date()
+                    except:
+                        fecha_sugerida = date.today()
+                    eq_data = {"ooad": item_elegido["ooad"]}
+
+        # RAMA B: Si es Reporte de Fallo (Usa todo el padrón general libremente)
+        else:
+            opciones_equipos_cmms = {}
+            for idx, row in df_padron.iterrows():
+                inv_v = str(row.get(c_inv_key, "N/D"))
+                ser_v = str(row.get(c_ser_key, "N/D"))
+                ooad_v = str(row.get(c_ooad_key, "N/D"))
+                label_eq = f"Sede: {ooad_v} | Inv: {inv_v} | Serie: {ser_v}"
+                opciones_equipos_cmms[label_eq] = row
+
+            equipo_elegido_label = st.selectbox("🚜 Seleccione el equipo del Padrón General por Serie / Inventario:", options=list(opciones_equipos_cmms.keys()), key="select_eq_fallo_general")
             
+            if equipo_elegido_label:
+                eq_data = opciones_equipos_cmms[equipo_elegido_label]
+                serie_sel = str(eq_data.get(c_ser_key, ""))
+                inv_sel = str(eq_data.get(c_inv_key, ""))
+                etapa_asociada = str(eq_data.get("etapa_contractual", "N/D"))
+                contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
+
+        # Si ya se seleccionó una unidad válida por cualquiera de los dos caminos:
+        if serie_sel:
             st.markdown("---")
             col_info1, col_info2, col_info3 = st.columns(3)
             col_info1.metric("Inventario", inv_sel)
             col_info2.metric("Número de Serie", serie_sel)
-            col_info3.metric("Sede / OOAD", str(eq_data.get(c_ooad_key, "N/D")))
+            col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
             
-            st.markdown("#### 📝 Capturar Orden de Servicio y Estatus Pantone")
-            with st.form(f"form_captura_ot_{serie_sel}_v3"):
+            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else "Reporte de Fallo"
+            st.markdown(f"#### 📝 Capturar Orden de Trabajo ({tipo_etiqueta})")
+            
+            with st.form(f"form_captura_ot_{serie_sel}_v4"):
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
-                    fecha_servicio = st.date_input("Fecha Real del Cierre Físico", value=date.today())
+                    fecha_servicio = st.date_input("Fecha Real del Cierre Físico", value=fecha_sugerida)
                     nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
                 with col_f2:
                     estatus_pantone = st.selectbox(
@@ -472,6 +528,9 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 submitted_ot = st.form_submit_button("💾 Guardar y Actualizar Estatus en Calendario")
                 if submitted_ot:
                     nuevo_registro = {
+                        "tipo_servicio": tipo_etiqueta,
+                        "etapa": etapa_asociada,
+                        "contrato": contrato_asociado,
                         "serie": serie_sel,
                         "inventario": inv_sel,
                         "fecha": str(fecha_servicio),
@@ -481,7 +540,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "observaciones": observaciones_ot
                     }
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
-                    st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
+                    st.success(f"✅ ¡Servicio de tipo '{tipo_etiqueta}' registrado con éxito para el equipo con serie {serie_sel}!")
 
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
             historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
@@ -489,10 +548,11 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 for i, serv in enumerate(historial_equipo):
                     cols_hist = st.columns([5, 1])
                     with cols_hist[0]:
-                        st.markdown(f"🔹 **Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
+                        badge_tipo = serv.get('tipo_servicio', 'Servicio')
+                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
                         st.caption(f"Obs: {serv['observaciones']}")
                     with cols_hist[1]:
-                        if st.button("🗑️ Borrar", key=f"btn_del_{serie_sel}_{i}"):
+                        if st.button("🗑️ Borrar", key=f"btn_del_v4_{serie_sel}_{i}"):
                             st.session_state.historial_mantenimientos_local.remove(serv)
                             st.success("✅ ¡Registro eliminado correctamente!")
                             st.rerun()
