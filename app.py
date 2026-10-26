@@ -282,48 +282,58 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (SELECTOR DINÁMICO DESDE BD)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (JERARQUÍA: ETAPA -> OOAD)
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
-        st.markdown("💡 **Detección Automática:** Las etapas/contratos se cargan directamente de los valores reales de tu base de datos en Supabase.")
+        st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado estricto por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
         with st.form("form_calendarizacion_lotes_smart"):
-            # 1. Detectar la columna de etapa o contrato real en el padrón
-            col_etapa_real = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
+            # 1. PRIMER FILTRO: Columna "etapa_contractual"
+            etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
+            etapa_seleccionada = st.selectbox("📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", options=etapas_disponibles)
             
-            # 2. Extraer las opciones ÚNICAS directamente de Supabase para que aparezca la Etapa 3 real
-            if col_etapa_real in df_padron.columns:
-                etapas_disponibles = sorted([str(x) for x in df_padron[col_etapa_real].unique() if str(x).strip() != ""])
-            else:
-                etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
-
-            etapa_seleccionada = st.selectbox("📌 1. Seleccione la Etapa / Contrato (Leído de BD):", options=etapas_disponibles)
+            # Apuntar directamente a la columna real de Supabase
+            col_etapa = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
             
-            # 3. FILTRAR EXACTAMENTE por el valor seleccionado
+            # Filtrar el padrón general usando la etapa seleccionada
             df_etapa_filtro = df_padron[
-                df_padron[col_etapa_real].astype(str).str.strip() == etapa_seleccionada.strip()
+                df_padron[col_etapa].astype(str).str.strip().str.lower() == etapa_seleccionada.strip().lower()
             ].copy()
+            
+            # Respaldo flexible por si el formato exacto en Supabase varía ligeramente
+            if df_etapa_filtro.empty:
+                if "Etapa 1" in etapa_seleccionada:
+                    kw = "etapa 1"
+                elif "Etapa 2" in etapa_seleccionada:
+                    kw = "etapa 2"
+                else:
+                    kw = "etapa 3"
+                df_etapa_filtro = df_padron[
+                    df_padron[col_etapa].astype(str).str.lower().str.contains(kw, na=False)
+                ].copy()
 
-            # 4. Extraer sedes dinámicamente SOLO del subconjunto de esa selección
-            sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[c_ooad_key].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
+            # 2. SEGUNDO FILTRO: Columna "ooad_estado" correspondiente a esa etapa
+            col_ooad = "ooad_estado" if "ooad_estado" in df_padron.columns else c_ooad_key
+            
+            sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[col_ooad].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
 
-            sedes_lote = st.multiselect("📌 2. Seleccione las OOADs / Sedes de este grupo a calendarizar:", options=sedes_disponibles_etapa)
+            sedes_lote = st.multiselect(f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", options=sedes_disponibles_etapa)
             fecha_teorica_lote = st.date_input("📌 3. Fecha Teórica Programada para este Lote", value=date.today())
             
             # Vista previa dinámica en tiempo real
             if sedes_lote:
-                unidades_previstas = df_etapa_filtro[df_etapa_filtro[c_ooad_key].isin(sedes_lote)]
-                st.caption(f"🔍 **Vista previa:** Se agregarán **{len(unidades_previstas)} unidades** correspondientes a `{etapa_seleccionada}`.")
+                unidades_previstas = df_etapa_filtro[df_etapa_filtro[col_ooad].isin(sedes_lote)]
+                st.caption(f"🔍 **Vista previa:** Se detectaron y agregarán **{len(unidades_previstas)} unidades** correspondientes a esta selección.")
 
             submitted_lote = st.form_submit_button("➕ Agregar Lote a la Lista Acumulada")
             if submitted_lote and sedes_lote:
                 contador_registros = 0
                 for sede in sedes_lote:
-                    unidades_sede = df_etapa_filtro[df_etapa_filtro[c_ooad_key] == sede]
+                    unidades_sede = df_etapa_filtro[df_etapa_filtro[col_ooad] == sede]
                     
                     for _, u_row in unidades_sede.iterrows():
-                        etapa_real_val = str(u_row.get(col_etapa_real, etapa_seleccionada))
+                        etapa_real_val = str(u_row.get(col_etapa, etapa_seleccionada))
                         contrato_real_val = str(u_row.get("num_contrato", u_row.get("contrato", "J2523" if "3" in etapa_real_val else "J1954")))
                         
                         item_cal = {
@@ -338,7 +348,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                             st.session_state.equipos_calendarizados.append(item_cal)
                             contador_registros += 1
                             
-                st.success(f"✅ Se han agregado {contador_registros} unidades de **{etapa_seleccionada}** exitosamente.")
+                st.success(f"✅ Se han agregado {contador_registros} unidades exitosamente a la lista.")
                 st.rerun()
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
