@@ -406,23 +406,20 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     try:
                         import math
                         
-                        # Limpiar valores NaN o flotantes no válidos para JSON
+                        # Limpiar valores NaN, omitir id/created_at y convertir vacíos a None (NULL)
                         lotes_limpios = []
                         for item in st.session_state.equipos_calendarizados:
                             item_limpio = {}
                             for k, v in item.items():
-                                
-                                # 🟢 AQUÍ PONES ESTAS DOS LÍNEAS NUEVAS:
-                                if k == "id":
+                                if k in ["id", "created_at"]:  # Omitir columnas automáticas de Supabase
                                     continue
-                                
-                                if pd.isna(v) or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))):
-                                    item_limpio[k] = ""
+                                if pd.isna(v) or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))) or v == "":
+                                    item_limpio[k] = None  # Enviar como NULL real a la base de datos
                                 else:
                                     item_limpio[k] = v
                             lotes_limpios.append(item_limpio)
 
-                        # Limpiar y reinsertar con datos limpios
+                        # Limpiar la tabla y reinsertar con datos limpios
                         supabase.table("calendarizacion_lotes").delete().neq("id", 0).execute()
                         supabase.table("calendarizacion_lotes").insert(lotes_limpios).execute()
                         st.success("✅ ¡Lotes calendarizados sincronizados con éxito en Supabase!")
