@@ -281,12 +281,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_ooad_key = next((c for c in cols_p if "ooad" in c.lower()), "ooad_estado")
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
-    # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (FILTRO ESTRICTO)
+# ==========================================
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (FILTRO FLEXIBLE POR ETAPA)
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
-        st.markdown("💡 **Selecciona la Etapa:** El sistema filtrará estrictamente las unidades asignadas a esa etapa en la base de datos[cite: 2].")
+        st.markdown("💡 **Selecciona la Etapa:** El filtro flexible detectará las unidades de la etapa o su contrato asociado.")
 
         with st.form("form_calendarizacion_lotes_smart"):
             # 1. Selector de Etapa
@@ -295,12 +295,25 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             
             col_etapa_real = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
             
-            # 2. FILTRAR ESTRICTAMENTE por la etapa seleccionada en la BD[cite: 2]
+            # 2. DEFINIR PALABRAS CLAVE FLEXIBLES SEGÚN LA ETAPA
+            if "Etapa 1" in etapa_seleccionada:
+                kw_etapa = "etapa 1"
+                kw_contrato = "2022"
+            elif "Etapa 2" in etapa_seleccionada:
+                kw_etapa = "etapa 2"
+                kw_contrato = "j1954"
+            else:  # Etapa 3
+                kw_etapa = "etapa 3"
+                kw_contrato = "j2523"
+
+            # 3. FILTRAR DE FORMA FLEXIBLE (detecta texto parcial o contrato)
+            texto_columna = df_padron[col_etapa_real].astype(str).str.lower()
             df_etapa_filtro = df_padron[
-                df_padron[col_etapa_real].astype(str).str.strip().str.lower() == etapa_seleccionada.strip().lower()
+                texto_columna.str.contains(kw_etapa, case=False, na=False) |
+                texto_columna.str.contains(kw_contrato, case=False, na=False)
             ].copy()
 
-            # 3. Extraer sedes dinámicamente SOLO del subconjunto de esa Etapa
+            # 4. Extraer sedes dinámicamente SOLO del subconjunto de esa Etapa
             sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[c_ooad_key].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
 
             sedes_lote = st.multiselect("📌 2. Seleccione las OOADs / Sedes de esta Etapa a calendarizar:", options=sedes_disponibles_etapa)
@@ -319,7 +332,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     
                     for _, u_row in unidades_sede.iterrows():
                         etapa_real_val = str(u_row.get(col_etapa_real, etapa_seleccionada))
-                        contrato_real_val = str(u_row.get("num_contrato", u_row.get("contrato", "J1954" if "Etapa 2" in etapa_real_val else "J2523")))
+                        contrato_real_val = str(u_row.get("num_contrato", u_row.get("contrato", kw_contrato.upper())))
                         
                         item_cal = {
                             "etapa": etapa_real_val,
@@ -337,25 +350,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.rerun()
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
-
-        # Listado Acumulado
-        st.markdown("---")
-        st.markdown("#### 📋 Listado Acumulado de Unidades Calendarizadas")
-        
-        if st.session_state.equipos_calendarizados:
-            st.markdown(f"Total de unidades acumuladas en la sesión: **{len(st.session_state.equipos_calendarizados)}**")
-            
-            col_b1, col_b2 = st.columns([4, 1])
-            with col_b2:
-                if st.button("🗑️ Vaciar Lista Acumulada"):
-                    st.session_state.equipos_calendarizados = []
-                    st.success("Lista acumulada vaciada correctamente.")
-                    st.rerun()
-
-            st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
-        else:
-            st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
-
     # ==========================================
     # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
     # ==========================================
