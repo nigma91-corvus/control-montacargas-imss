@@ -282,11 +282,11 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (JERARQUÍA: ETAPA -> OOAD)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (JERARQUÍA DINÁMICA)
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
-        st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado estricto por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
+        st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
         with st.form("form_calendarizacion_lotes_smart"):
             # 1. PRIMER FILTRO: Columna "etapa_contractual"
@@ -318,13 +318,19 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             
             sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[col_ooad].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
 
-            sedes_lote = st.multiselect(f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", options=sedes_disponibles_etapa)
+            # Etiqueta 100% dinámica basada en la etapa seleccionada
+            sedes_lote = st.multiselect(
+                f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", 
+                options=sedes_disponibles_etapa,
+                key=f"multiselect_sedes_{etapa_seleccionada}"
+            )
+            
             fecha_teorica_lote = st.date_input("📌 3. Fecha Teórica Programada para este Lote", value=date.today())
             
             # Vista previa dinámica en tiempo real
             if sedes_lote:
                 unidades_previstas = df_etapa_filtro[df_etapa_filtro[col_ooad].isin(sedes_lote)]
-                st.caption(f"🔍 **Vista previa:** Se detectaron y agregarán **{len(unidades_previstas)} unidades** correspondientes a esta selección.")
+                st.caption(f"🔍 **Vista previa:** Se detectaron y agregarán **{len(unidades_previstas)} unidades** correspondientes a `{etapa_seleccionada}`.")
 
             submitted_lote = st.form_submit_button("➕ Agregar Lote a la Lista Acumulada")
             if submitted_lote and sedes_lote:
@@ -348,12 +354,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                             st.session_state.equipos_calendarizados.append(item_cal)
                             contador_registros += 1
                             
-                st.success(f"✅ Se han agregado {contador_registros} unidades exitosamente a la lista.")
+                st.success(f"✅ Se han agregado {contador_registros} unidades de **{etapa_seleccionada}** exitosamente a la lista.")
                 st.rerun()
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
-        # Listado Acumulado
+        # Listado Acumulado (Aquí se conservan todas las unidades que vas agregando de cualquier etapa)
         st.markdown("---")
         st.markdown("#### 📋 Listado Acumulado de Unidades Calendarizadas")
         
