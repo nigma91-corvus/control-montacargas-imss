@@ -404,45 +404,70 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             st.session_state.equipos_calendarizados = df_editado.to_dict("records")
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
+
             # ==========================================
-    # REPORTE DE UNIDADES PENDIENTES DE CALENDARIZAR
+    # REPORTE DE UNIDADES PENDIENTES DE CALENDARIZAR (POR ETAPA)
     # ==========================================
     st.markdown("---")
     st.markdown("### 📋 Reporte de Unidades Pendientes por Calendarizar")
-    st.markdown("💡 Conteo exacto y ubicación de los montacargas del padrón general que **aún no tienen fecha de servicio asignada**.")
+    st.markdown("💡 Selecciona una etapa específica para auditar el volumen exacto y la ubicación de los montacargas que aún no tienen fecha asignada.")
+
+    # Botones de selección horizontal para filtrar el reporte por etapa
+    opciones_reporte_etapa = ["🌐 Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
+    etapa_reporte_sel = st.radio(
+        "📌 Filtrar reporte de pendientes por etapa:",
+        options=opciones_reporte_etapa,
+        horizontal=True,
+        key="radio_etapa_reporte_pendientes"
+    )
+
+    # Filtrar el padrón base según la etapa seleccionada para el reporte
+    col_etapa = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
+    
+    if "Todas" not in etapa_reporte_sel:
+        if "Etapa 1" in etapa_reporte_sel:
+            kw = "etapa 1"
+        elif "Etapa 2" in etapa_reporte_sel:
+            kw = "etapa 2"
+        else:
+            kw = "etapa 3"
+        df_padron_base_reporte = df_padron[
+            df_padron[col_etapa].astype(str).str.lower().str.contains(kw, na=False)
+        ].copy()
+    else:
+        df_padron_base_reporte = df_padron.copy()
 
     # 1. Extraer series ya calendarizadas en sesión
     series_calendarizadas = set(str(item.get("serie", "")).strip() for item in st.session_state.equipos_calendarizados)
 
-    # 2. Filtrar del padrón general las que NO están calendarizadas
-    df_pendientes = df_padron[~df_padron[c_ser_key].astype(str).str.strip().isin(series_calendarizadas)].copy()
+    # 2. Obtener las pendientes de esa base filtrada
+    df_pendientes = df_padron_base_reporte[~df_padron_base_reporte[c_ser_key].astype(str).str.strip().isin(series_calendarizadas)].copy()
 
     total_pendientes = len(df_pendientes)
-    total_padron = len(df_padron)
-    porcentaje_avance = ((total_padron - total_pendientes) / total_padron * 100) if total_padron > 0 else 0
+    total_padron_base = len(df_padron_base_reporte)
+    porcentaje_avance = ((total_padron_base - total_pendientes) / total_padron_base * 100) if total_padron_base > 0 else 0
 
-    # 3. Mostrar métricas de control generales
+    # 3. Mostrar métricas de control ajustadas a la selección
     col_p1, col_p2, col_p3 = st.columns(3)
-    col_p1.metric("Total en Padrón General", f"{total_padron} Unidades")
-    col_p2.metric("Pendientes de Calendarizar", f"{total_pendientes} Unidades", delta=f"-{total_pendientes}", delta_color="inverse")
+    col_p1.metric(f"Total en {etapa_reporte_sel.replace('🌐 ', '')}", f"{total_padron_base} Unidades")
+    col_p2.metric("Pendientes de Calendarizar", f"{total_pendientes} Unidades", delta=f"-{total_pendientes}" if total_pendientes > 0 else "0", delta_color="inverse")
     col_p3.metric("Avance de Calendarización", f"{porcentaje_avance:.1f}%")
 
     if total_pendientes > 0:
-        # Agrupar pendientes por Sede / OOAD para ver cantidad por ubicación
+        # Agrupar pendientes por Sede / OOAD para ver cantidad por ubicación en la etapa seleccionada
         df_resumen_pendientes = df_pendientes.groupby(col_ooad).agg(
             Unidades_Pendientes=(c_inv_key, "count")
         ).reset_index()
         df_resumen_pendientes.columns = ["Sede / OOAD", "Unidades Pendientes"]
         df_resumen_pendientes = df_resumen_pendientes.sort_values(by="Unidades Pendientes", ascending=False)
 
-        st.markdown("#### 📍 Desglose de Unidades Pendientes por Sede (OOAD)")
+        st.markdown(f"#### 📍 Desglose por Sede (OOAD) - {etapa_reporte_sel.replace('🌐 ', '')}")
         st.dataframe(df_resumen_pendientes, use_container_width=True, hide_index=True)
 
-        # Opcional: Expandible para ver el detalle de serie, inventario y etapa de los pendientes
-        with st.expander("🔍 Ver listado detallado de las unidades pendientes"):
+        with st.expander(f"🔍 Ver listado detallado de unidades pendientes ({etapa_reporte_sel.replace('🌐 ', '')})"):
             st.dataframe(df_pendientes, use_container_width=True, hide_index=True)
     else:
-        st.success("🎉 ¡Excelente noticia! El 100% de las unidades del padrón general ya se encuentran calendarizadas.")
+        st.success(f"🎉 ¡Excelente noticia! El 100% de las unidades correspondientes a `{etapa_reporte_sel.replace('🌐 ', '')}` ya se encuentran calendarizadas.")
 
     # ==========================================
     # PESTAÑA 2: CALENDARIO RESUMIDO POR DÍA
