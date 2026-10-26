@@ -426,15 +426,23 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     # ==========================================
     with tab_cmms3:
         st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
-        st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada o realizar un reporte de fallo general.")
+        st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada, atender inconclusos o realizar un reporte de fallo.")
 
-        # 1. Selector del Tipo de Servicio
+        # Verificar si viene una unidad seleccionada por reprogramación desde la Pestaña 4
+        serie_preseleccionada = st.session_state.get("serie_reprogramar_activa", None)
+
+        # 1. Selector del Tipo de Servicio (Incluyendo seguimiento a inconclusos)
+        tipos_disponibles = [
+            "📅 Mantenimiento Calendarizado (Servicio Programado)",
+            "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)",
+            "🔄 Seguimiento / Conclusión de Servicio Inconcluso"
+        ]
+        
+        default_idx = 2 if serie_preseleccionada else 0
         tipo_servicio_sel = st.selectbox(
             "📌 Seleccione el Tipo de Servicio a Registrar:",
-            [
-                "📅 Mantenimiento Calendarizado (Servicio Programado)",
-                "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)"
-            ],
+            options=tipos_disponibles,
+            index=default_idx,
             key="select_tipo_servicio_ot"
         )
 
@@ -445,16 +453,14 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         etapa_asociada = "N/D"
         contrato_asociado = "N/D"
 
-        # RAMA A: Si es Mantenimiento Calendarizado (Filtra por Fecha y Lotes de la Pestaña 1)
+        # RAMA A: Mantenimiento Calendarizado
         if "Calendarizado" in tipo_servicio_sel:
             if not st.session_state.equipos_calendarizados:
-                st.warning("⚠️ No hay equipos calendarizados en la Lista Acumulada (Pestaña 1). Por favor calendarice lotes primero o seleccione 'Reporte de Fallo'.")
+                st.warning("⚠️ No hay equipos calendarizados en la Lista Acumulada (Pestaña 1).")
             else:
-                # Extraer fechas únicas disponibles en los equipos calendarizados
                 fechas_disponibles = sorted(list(set(item["fecha_programada"] for item in st.session_state.equipos_calendarizados)))
                 fecha_elegida_cal = st.selectbox("📅 1. Seleccione la Fecha Programada:", options=fechas_disponibles, key="sel_fecha_calendarizada_ot")
                 
-                # Filtrar solo los equipos de esa fecha
                 equipos_en_fecha = [item for item in st.session_state.equipos_calendarizados if item["fecha_programada"] == fecha_elegida_cal]
                 
                 opciones_cal_label = {}
@@ -476,7 +482,29 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         fecha_sugerida = date.today()
                     eq_data = {"ooad": item_elegido["ooad"]}
 
-        # RAMA B: Si es Reporte de Fallo (Usa todo el padrón general libremente)
+        # RAMA B: Seguimiento a Inconclusos
+        elif "Inconcluso" in tipo_servicio_sel:
+            inconclusos_reg = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
+            
+            if not inconclusos_reg:
+                st.success("🟢 No hay servicios inconclusos pendientes de seguimiento.")
+            else:
+                opciones_inc = {}
+                for s in inconclusos_reg:
+                    lbl = f"Serie: {s['serie']} | Inv: {s['inventario']} | Última Fecha: {s['fecha']} | Estatus: {s['estatus']}"
+                    opciones_inc[lbl] = s
+                
+                sel_inc_lbl = st.selectbox("🔄 Seleccione el equipo inconcluso a dar continuidad:", options=list(opciones_inc.keys()), key="sel_inc_seguimiento")
+                if sel_inc_lbl:
+                    reg_ant = opciones_inc[sel_inc_lbl]
+                    serie_sel = reg_ant["serie"]
+                    inv_sel = reg_ant["inventario"]
+                    etapa_asociada = reg_ant.get("etapa", "N/D")
+                    contrato_asociado = reg_ant.get("contrato", "N/D")
+                    eq_data = {"ooad": "Seguimiento en Sitio"}
+                    st.info(f"💡 **Nota:** Está atendiendo la continuidad del servicio previo con observaciones: *'{reg_ant.get('observaciones','')}'*")
+
+        # RAMA C: Reporte de Fallo
         else:
             opciones_equipos_cmms = {}
             for idx, row in df_padron.iterrows():
@@ -495,7 +523,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 etapa_asociada = str(eq_data.get("etapa_contractual", "N/D"))
                 contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
 
-        # Si ya se seleccionó una unidad válida por cualquiera de los dos caminos:
+        # Formulario de Captura de la Orden de Trabajo
         if serie_sel:
             st.markdown("---")
             col_info1, col_info2, col_info3 = st.columns(3)
@@ -503,29 +531,29 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             col_info2.metric("Número de Serie", serie_sel)
             col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
             
-            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else "Reporte de Fallo"
-            st.markdown(f"#### 📝 Capturar Orden de Trabajo ({tipo_etiqueta})")
+            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
+            st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
             
-            with st.form(f"form_captura_ot_{serie_sel}_v4"):
+            with st.form(f"form_captura_ot_{serie_sel}_v5"):
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
-                    fecha_servicio = st.date_input("Fecha Real del Cierre Físico", value=fecha_sugerida)
+                    fecha_servicio = st.date_input("Fecha de Visita / Cierre de Continuidad", value=fecha_sugerida)
                     nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
                 with col_f2:
                     estatus_pantone = st.selectbox(
-                        "Estatus del Servicio (Aplica Color Pantone):",
+                        "Estatus Actualizado",
                         [
-                            "🟢 Concluido (100%) - Verde Pantone 561 C (#005A36)",
-                            "🟡 Inconcluso / Falla - Amarillo Pantone 468 C (#C2B280)",
-                            "🔴 No Realizado - Rojo Pantone 7420 C (#8A1C2A)"
+                            "🟢 Concluido (100%)",
+                            "🟡 Sigue Inconcluso / Requiere Nueva Refacción",
+                            "🔴 No Realizado"
                         ]
                     )
                     nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
                 
-                observaciones_ot = st.text_area("Diagnóstico y Observaciones Detalladas del Servicio")
-                pdf_evidencia = st.file_uploader("Cargar Orden de Trabajo Firmada (PDF)", type=["pdf", "png", "jpg"])
+                observaciones_ot = st.text_area("Diagnóstico de Continuidad y Acciones Realizadas en esta Visita")
+                pdf_evidencia = st.file_uploader("Cargar Nueva Orden de Trabajo / Acta Firmada (PDF)", type=["pdf", "png", "jpg"])
                 
-                submitted_ot = st.form_submit_button("💾 Guardar y Actualizar Estatus en Calendario")
+                submitted_ot = st.form_submit_button("💾 Guardar Continuidad y Actualizar Expediente")
                 if submitted_ot:
                     nuevo_registro = {
                         "tipo_servicio": tipo_etiqueta,
@@ -540,9 +568,15 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "observaciones": observaciones_ot
                     }
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
-                    st.success(f"✅ ¡Servicio de tipo '{tipo_etiqueta}' registrado con éxito para el equipo con serie {serie_sel}!")
+                    
+                    # Limpiar bandera temporal si existía
+                    if "serie_reprogramar_activa" in st.session_state:
+                        del st.session_state["serie_reprogramar_activa"]
+                        
+                    st.success(f"✅ ¡Continuidad registrada con éxito para la serie {serie_sel}! El expediente se ha actualizado.")
+                    st.rerun()
 
-            st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
+            st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
             historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
             if historial_equipo:
                 for i, serv in enumerate(historial_equipo):
@@ -552,7 +586,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
                         st.caption(f"Obs: {serv['observaciones']}")
                     with cols_hist[1]:
-                        if st.button("🗑️ Borrar", key=f"btn_del_v4_{serie_sel}_{i}"):
+                        if st.button("🗑️ Borrar", key=f"btn_del_v5_{serie_sel}_{i}"):
                             st.session_state.historial_mantenimientos_local.remove(serv)
                             st.success("✅ ¡Registro eliminado correctamente!")
                             st.rerun()
@@ -561,28 +595,27 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
 
     # ==========================================
-    # PESTAÑA 4: BANDEJA DE INCONCLUSOS
+    # PESTAÑA 4: BANDEJA DE INCONCLUSOS & REPROGRAMACIÓN
     # ==========================================
     with tab_cmms4:
         st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
+        st.markdown("💡 Aquí se listan todas las unidades que quedaron pendientes. Puede dar clic en **'🔄 Atender Continuidad'** para saltar directamente a la Pestaña 3 y registrar la nueva visita.")
+        
         inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
         
         if inconclusos_locales:
-            df_inc = pd.DataFrame(inconclusos_locales)
-            st.dataframe(df_inc, use_container_width=True, hide_index=True)
+            for i, inc in enumerate(inconclusos_locales):
+                with st.container():
+                    col_inc1, col_inc2 = st.columns([4, 1])
+                    with col_inc1:
+                        st.markdown(f"🚨 **Serie:** {inc['serie']} | **Inventario:** {inc['inventario']} | **Fecha Última:** {inc['fecha']}")
+                        st.markdown(f"⚠️ **Estatus:** {inc['estatus']}")
+                        st.caption(f"**Motivo / Observación:** {inc['observaciones']}")
+                    with col_inc2:
+                        if st.button("🔄 Atender Continuidad", key=f"btn_atender_inc_{i}"):
+                            st.session_state["serie_reprogramar_activa"] = inc["serie"]
+                            st.success("Redirigiendo a la Pestaña 3...")
+                            st.rerun()
+                    st.markdown("---")
         else:
             st.success("🟢 No hay unidades con servicios inconclusos o no realizados registrados en la sesión actual.")
-
-# ==========================================
-# MÓDULO 5: EDITAR / REGISTRAR UNIDAD
-# ==========================================
-elif menu == "📝 Editar / Registrar Unidad":
-    st.subheader("📝 Registro o Modificación de Unidades en Padrón")
-    st.info("Utilice este módulo para dar de alta nuevas unidades o actualizar la información general de la flota en Supabase.")
-    with st.form("form_reg_unidad"):
-        nuevo_inv = st.text_input("Número de Inventario")
-        nueva_serie = st.text_input("Número de Serie")
-        nueva_ooad = st.text_input("OOAD / Estado")
-        submit_reg = st.form_submit_button("Guardar en Padrón General")
-        if submit_reg:
-            st.success(f"Unidad con inventario {nuevo_inv} procesada correctamente.")
