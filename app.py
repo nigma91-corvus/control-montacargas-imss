@@ -270,7 +270,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
 
     tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
         "📂 1. Calendarización por Lotes (Lista Acumulada)",
-        "📅 2. Calendario Activo & Semáforo Pantone",
+        "📅 2. Calendario Activo & Resumen por Día",
         "📂 3. Expediente y Captura de Servicio en Sitio",
         "🔴 4. Bandeja de Inconclusos"
     ])
@@ -282,13 +282,13 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON EDICIÓN Y ELIMINACIÓN INDIVIDUAL)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES + TOTAL DE VEHÍCULOS
     # ==========================================
     with tab_cmms1:
         st.markdown("### 🗺️ Calendarización Rápida por Lotes")
         st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
-        # 1. PRIMER FILTRO FUERA DEL FORMULARIO (Para que no se resetee al cambiar de opción)
+        # 1. PRIMER FILTRO FUERA DEL FORMULARIO
         etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
         etapa_seleccionada = st.selectbox(
             "📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", 
@@ -296,15 +296,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             key="select_etapa_contrato_lote"
         )
         
-        # Apuntar directamente a la columna real de Supabase
         col_etapa = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
         
-        # Filtrar el padrón general usando la etapa seleccionada
         df_etapa_filtro = df_padron[
             df_padron[col_etapa].astype(str).str.strip().str.lower() == etapa_seleccionada.strip().lower()
         ].copy()
         
-        # Respaldo flexible por si el formato exacto en Supabase varía ligeramente
         if df_etapa_filtro.empty:
             if "Etapa 1" in etapa_seleccionada:
                 kw = "etapa 1"
@@ -316,12 +313,9 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 df_padron[col_etapa].astype(str).str.lower().str.contains(kw, na=False)
             ].copy()
 
-        # 2. SEGUNDO FILTRO: Columna "ooad_estado" correspondiente a esa etapa
         col_ooad = "ooad_estado" if "ooad_estado" in df_padron.columns else c_ooad_key
-        
         sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[col_ooad].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
 
-        # Formulario para agregar lotes
         with st.form("form_calendarizacion_lotes_smart"):
             sedes_lote = st.multiselect(
                 f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", 
@@ -330,7 +324,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             
             fecha_teorica_lote = st.date_input("📌 3. Fecha Teórica Programada para este Lote", value=date.today())
             
-            # Vista previa dinámica en tiempo real
             if sedes_lote:
                 unidades_previstas = df_etapa_filtro[df_etapa_filtro[col_ooad].isin(sedes_lote)]
                 st.caption(f"🔍 **Vista previa:** Se detectaron y agregarán **{len(unidades_previstas)} unidades** correspondientes a `{etapa_seleccionada}`.")
@@ -363,13 +356,15 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
         # ==========================================
-        # LISTADO ACUMULADO CON EDICIÓN Y ELIMINACIÓN INDIVIDUAL
+        # LISTADO ACUMULADO + MÉTRICA DE TOTAL DE VEHÍCULOS
         # ==========================================
         st.markdown("---")
-        st.markdown("#### 📋 Listado Acumulado de Unidades Calendarizadas")
-        st.markdown("💡 *Nota: Puedes hacer clic en cualquier celda para corregir un dato o eliminar filas directamente en la tabla si te equivocaste.*")
         
         if st.session_state.equipos_calendarizados:
+            # Métrica destacada con el Total de Vehículos Registrados
+            total_vehiculos_acumulados = len(st.session_state.equipos_calendarizados)
+            st.metric(label="📊 Total de Vehículos Registrados a Servicio", value=f"{total_vehiculos_acumulados} Unidades")
+            
             col_b1, col_b2 = st.columns([4, 1])
             with col_b2:
                 if st.button("🗑️ Vaciar Toda la Lista"):
@@ -377,7 +372,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     st.success("Lista acumulada vaciada correctamente.")
                     st.rerun()
 
-            # Convertir a DataFrame y usar st.data_editor para permitir correcciones individuales
             df_acumulado = pd.DataFrame(st.session_state.equipos_calendarizados)
             
             df_editado = st.data_editor(
@@ -388,43 +382,44 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 key="editor_equipos_calendarizados"
             )
             
-            # Sincronizar los cambios realizados en la tabla interactiva de vuelta al session_state
             st.session_state.equipos_calendarizados = df_editado.to_dict("records")
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
 
     # ==========================================
-    # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
+    # PESTAÑA 2: CALENDARIO RESUMIDO POR DÍA
     # ==========================================
     with tab_cmms2:
-        st.markdown("### 📅 Calendario Operativo & Semáforo de Cumplimiento (Pantone)")
-        st.markdown("Las fechas futuras o pendientes permanecen en estatus **Neutro**. Los colores se activan estrictamente tras la captura en sitio.")
+        st.markdown("### 📅 Calendario Operativo: Resumen de Servicios por Día")
+        st.markdown("💡 Vista agrupada que muestra el volumen de unidades calendarizadas distribuidas por fecha de programación.")
 
         if not st.session_state.equipos_calendarizados:
             st.info("ℹ️ No hay equipos calendarizados todavía. Vaya a la **Pestaña 1** para programar por lotes.")
         else:
-            tabla_calendario_vista = []
-            for item in st.session_state.equipos_calendarizados:
-                serie_eq = item["serie"]
-                servicios_eq = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_eq]
+            df_cal_bruto = pd.DataFrame(st.session_state.equipos_calendarizados)
+            
+            if not df_cal_bruto.empty and "fecha_programada" in df_cal_bruto.columns:
+                # Agrupar por fecha programada para ver el total de unidades por día
+                df_resumen_dia = df_cal_bruto.groupby("fecha_programada").agg(
+                    Total_Unidades=("inventario", "count"),
+                    Etapas_Incluidas=("etapa", lambda x: ", ".join(x.unique())),
+                    Sedes_Incluidas=("ooad", lambda x: ", ".join(x.unique()))
+                ).reset_index()
                 
-                if servicios_eq:
-                    estatus_real = servicios_eq[0].get("estatus", "Pendiente")
-                else:
-                    estatus_real = "⚪ Sin Captura (Neutro)"
-
-                tabla_calendario_vista.append({
-                    "Etapa": item["etapa"],
-                    "Contrato": item.get("contrato", "N/D"),
-                    "OOAD / Sede": item["ooad"],
-                    "Inventario": item["inventario"],
-                    "No. Serie": serie_eq,
-                    "Fecha Programada": item["fecha_programada"],
-                    "Estatus / Semáforo Pantone": estatus_real
-                })
-
-            df_cal_view = pd.DataFrame(tabla_calendario_vista)
-            st.dataframe(df_cal_view, use_container_width=True, hide_index=True)
+                df_resumen_dia.columns = ["Fecha Programada", "Total Unidades a Servir", "Etapas en la Fecha", "Sedes / OOADs"]
+                
+                # Métrica rápida general
+                st.metric(label="📅 Días con Programación Activa", value=f"{len(df_resumen_dia)} Fechas")
+                st.markdown("---")
+                
+                # Mostrar tabla resumida por día
+                st.dataframe(df_resumen_dia, use_container_width=True, hide_index=True)
+                
+                st.markdown("---")
+                st.markdown("#### 🔍 Detalle Completo de Unidades Calendarizadas")
+                st.dataframe(df_cal_bruto, use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ No hay datos suficientes para generar el resumen por día.")
 
     # ==========================================
     # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
@@ -489,7 +484,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
 
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
-            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
+            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie"] == serie_sel]
             if historial_equipo:
                 for i, serv in enumerate(historial_equipo):
                     cols_hist = st.columns([5, 1])
