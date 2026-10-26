@@ -266,7 +266,7 @@ elif menu == "FC3  Ficha Digital por Equipo" or menu == "🎇 Ficha Digital por 
 # ==========================================
 elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     st.subheader("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
-    st.markdown("Control operativo, calendarización por lotes con reglas de contrato (**J1954 ➡️ Etapa 2** | **J2523 ➡️ Etapa 3**), calendario activo y expediente.")
+    st.markdown("Control operativo, calendarización por lotes con filtro jerárquico por etapa contractual, calendario activo y expediente.")
 
     tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
         "📂 1. Calendarización por Lotes (Lista Acumulada)",
@@ -282,48 +282,57 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (CON VISTA PREVIA Y LISTADO ACUMULADO)
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES (FILTRO PRINCIPAL POR ETAPA)
     # ==========================================
     with tab_cmms1:
-        st.markdown("### 🗺️ Calendarización Rápida por Lotes (Asociación Automática de Contrato)")
-        st.markdown("💡 **Regla integrada:** Contrato **J1954** asigna automáticamente **Etapa 2**, y contrato **J2523** asigna **Etapa 3**.")
+        st.markdown("### 🗺️ Calendarización Rápida por Lotes (Filtro Principal por Etapa)")
+        st.markdown("💡 **Jerarquía institucional:** Selecciona primero la Etapa contractual; el sistema acotará las sedes y asignará el contrato correspondiente de forma automática.")
 
-        catalogo_contratos_disponibles = ["J1954 (Etapa 2)", "J2523 (Etapa 3)"]
-        
         with st.form("form_calendarizacion_lotes_smart"):
-            contrato_seleccionado = st.selectbox("Seleccione el Contrato / Lote:", options=catalogo_contratos_disponibles)
+            # 1. Filtro principal por Etapa
+            etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
+            etapa_seleccionada = st.selectbox("📌 1. Seleccione la Etapa Contractual:", options=etapas_disponibles)
             
-            codigo_contrato = "J1954" if "J1954" in contrato_seleccionado else "J2523"
-            etapa_automatica = "Etapa 2 (2024)" if codigo_contrato == "J1954" else "Etapa 3 (2024)"
-            
-            st.info(f"📌 **Etapa vinculada automáticamente:** {etapa_automatica}")
+            # Mapeo automático de contrato según la etapa
+            if "Etapa 2" in etapa_seleccionada:
+                codigo_contrato = "J1954"
+            elif "Etapa 3" in etapa_seleccionada:
+                codigo_contrato = "J2523"
+            else:
+                codigo_contrato = "GENERAL"
+                
+            st.info(f"📌 **Contrato vinculado automáticamente:** `{codigo_contrato}`")
 
-            # Filtrar sedes disponibles con respaldo de seguridad
-            df_contrato_filtro = pd.DataFrame()
+            # 2. Filtrar el padrón estrictamente por la etapa seleccionada
+            df_etapa_filtro = pd.DataFrame()
             if c_contrato_key in df_padron.columns:
-                df_contrato_filtro = df_padron[df_padron[c_contrato_key].astype(str).str.contains(codigo_contrato, case=False, na=False)]
+                df_etapa_filtro = df_padron[
+                    df_padron[c_contrato_key].astype(str).str.contains(etapa_seleccionada, case=False, na=False) |
+                    df_padron[c_contrato_key].astype(str).str.contains(codigo_contrato, case=False, na=False)
+                ]
             
-            if df_contrato_filtro.empty:
-                df_contrato_filtro = df_padron.copy()
+            if df_etapa_filtro.empty:
+                df_etapa_filtro = df_padron.copy()
 
-            sedes_disponibles_contrato = df_contrato_filtro[c_ooad_key].unique() if c_ooad_key in df_contrato_filtro.columns else []
+            # 3. Extraer sedes únicamente de este subconjunto filtrado
+            sedes_disponibles_etapa = sorted(df_etapa_filtro[c_ooad_key].unique().tolist()) if c_ooad_key in df_etapa_filtro.columns else []
 
-            sedes_lote = st.multiselect("Seleccione las OOADs / Sedes de este contrato a calendarizar:", options=list(sedes_disponibles_contrato))
-            fecha_teorica_lote = st.date_input("Fecha Teórica Programada para este Lote", value=date.today())
+            sedes_lote = st.multiselect("📌 2. Seleccione las OOADs / Sedes de esta Etapa a calendarizar:", options=sedes_disponibles_etapa)
+            fecha_teorica_lote = st.date_input("📌 3. Fecha Teórica Programada para este Lote", value=date.today())
             
             # Vista previa dinámica en tiempo real dentro del formulario
             if sedes_lote:
-                unidades_previstas = df_contrato_filtro[df_contrato_filtro[c_ooad_key].isin(sedes_lote)]
-                st.caption(f"🔍 **Vista previa del lote:** Se agregarán **{len(unidades_previstas)} unidades** a la lista acumulada.")
+                unidades_previstas = df_etapa_filtro[df_etapa_filtro[c_ooad_key].isin(sedes_lote)]
+                st.caption(f"🔍 **Vista previa del lote:** Se agregarán **{len(unidades_previstas)} unidades** correspondientes a `{etapa_seleccionada}` ({codigo_contrato}) a la lista acumulada.")
 
             submitted_lote = st.form_submit_button("➕ Agregar Lote a la Lista Acumulada")
             if submitted_lote and sedes_lote:
                 contador_registros = 0
                 for sede in sedes_lote:
-                    unidades_sede = df_contrato_filtro[df_contrato_filtro[c_ooad_key] == sede]
+                    unidades_sede = df_etapa_filtro[df_etapa_filtro[c_ooad_key] == sede]
                     for _, u_row in unidades_sede.iterrows():
                         item_cal = {
-                            "etapa": etapa_automatica,
+                            "etapa": etapa_seleccionada,
                             "contrato": codigo_contrato,
                             "ooad": sede,
                             "inventario": str(u_row.get(c_inv_key, "")),
@@ -333,7 +342,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         if item_cal not in st.session_state.equipos_calendarizados:
                             st.session_state.equipos_calendarizados.append(item_cal)
                             contador_registros += 1
-                st.success(f"✅ Se han agregado {contador_registros} unidades del contrato **{codigo_contrato}** exitosamente.")
+                st.success(f"✅ Se han agregado {contador_registros} unidades de la **{etapa_seleccionada}** ({codigo_contrato}) exitosamente.")
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
@@ -353,7 +362,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
 
             st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
         else:
-            st.info("ℹ️ Aún no hay unidades acumuladas en la calendarización. Selecciona las sedes arriba y haz clic en agregar.")
+            st.info("ℹ️ Aún no hay unidades acumuladas en la calendarización. Selecciona la etapa y sedes arriba para agregar.")
 
     # ==========================================
     # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
