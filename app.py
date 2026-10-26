@@ -332,7 +332,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                             "ooad": sede,
                             "inventario": str(u_row.get(c_inv_key, "")),
                             "serie": str(u_row.get(c_ser_key, "")),
-                            "fecha_programada": str(fecha_teorica_loter if 'fecha_teorica_loter' in locals() else fecha_teorica_lote)
+                            "fecha_programada": str(fecha_teorica_lote)
                         }
                         if item_cal not in st.session_state.equipos_calendarizados:
                             st.session_state.equipos_calendarizados.append(item_cal)
@@ -360,14 +360,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
-                        if item_cal not in st.session_state.equipos_calendarizados:
-                            st.session_state.equipos_calendarizados.append(item_cal)
-                            contador_registros += 1
-                            
-                st.success(f"✅ Se han agregado {contador_registros} unidades de la **{etapa_seleccionada}** exitosamente.")
-                st.rerun()
-            elif submitted_lote:
-                st.warning("⚠️ Selecciona al menos una sede para continuar.")
     # ==========================================
     # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
     # ==========================================
