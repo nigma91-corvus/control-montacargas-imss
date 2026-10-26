@@ -484,7 +484,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     st.success(f"✅ ¡Servicio registrado con éxito para el equipo con serie {serie_sel}! El calendario se ha actualizado.")
 
             st.markdown("#### 📜 Historial de Servicios Registrados para este Equipo")
-            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie"] == serie_sel]
+           historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
             if historial_equipo:
                 for i, serv in enumerate(historial_equipo):
                     cols_hist = st.columns([5, 1])
