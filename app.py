@@ -268,6 +268,23 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     st.subheader("🛠️ Módulo 4: Gestión de Mantenimiento (CMMS)")
     st.markdown("Control operativo, calendarización por lotes con filtro jerárquico estricto por etapa contractual, calendario activo y expediente.")
 
+    # ------------------------------------------
+    # CARGA AUTOMÁTICA DE REGISTROS DESDE SUPABASE
+    # ------------------------------------------
+    if "datos_remotos_cargados" not in st.session_state:
+        try:
+            res_cal = supabase.table("calendarizacion_lotes").select("*").execute()
+            if res_cal.data:
+                st.session_state.equipos_calendarizados = res_cal.data
+
+            res_hist = supabase.table("historial_mantenimientos").select("*").order("created_at", desc=True).execute()
+            if res_hist.data:
+                st.session_state.historial_mantenimientos_local = res_hist.data
+                
+            st.session_state.datos_remotos_cargados = True
+        except Exception as e:
+            st.warning(f"⚠️ Nota de conexión Supabase: {e}")
+
     tab_cmms1, tab_cmms2, tab_cmms3, tab_cmms4 = st.tabs([
         "📂 1. Calendarización por Lotes (Lista Acumulada)",
         "📅 2. Calendario Activo & Resumen por Día",
@@ -356,17 +373,23 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
         # ==========================================
-        # LISTADO ACUMULADO + MÉTRICA DE TOTAL DE VEHÍCULOS
+        # LISTADO ACUMULADO + MÉTRICA & SUPABASE
         # ==========================================
         st.markdown("---")
         
         if st.session_state.equipos_calendarizados:
-            # Métrica destacada con el Total de Vehículos Registrados
             total_vehiculos_acumulados = len(st.session_state.equipos_calendarizados)
             st.metric(label="📊 Total de Vehículos Registrados a Servicio", value=f"{total_vehiculos_acumulados} Unidades")
             
-            col_b1, col_b2 = st.columns([4, 1])
-            with col_b2:
+            col_b1, col_b2, col_b3 = st.columns([2, 2, 1])
+            with col_b1:
+                if st.button("☁️ Sincronizar Lotes con Supabase"):
+                    try:
+                        supabase.table("calendarizacion_lotes").insert(st.session_state.equipos_calendarizados).execute()
+                        st.success("✅ ¡Lotes calendarizados sincronizados con éxito en Supabase!")
+                    except Exception as e:
+                        st.error(f"❌ Error al guardar lotes: {e}")
+            with col_b3:
                 if st.button("🗑️ Vaciar Toda la Lista"):
                     st.session_state.equipos_calendarizados = []
                     st.success("Lista acumulada vaciada correctamente.")
@@ -399,7 +422,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             df_cal_bruto = pd.DataFrame(st.session_state.equipos_calendarizados)
             
             if not df_cal_bruto.empty and "fecha_programada" in df_cal_bruto.columns:
-                # Agrupar por fecha programada para ver el total de unidades por día
                 df_resumen_dia = df_cal_bruto.groupby("fecha_programada").agg(
                     Total_Unidades=("inventario", "count"),
                     Etapas_Incluidas=("etapa", lambda x: ", ".join(x.unique())),
@@ -408,11 +430,9 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 
                 df_resumen_dia.columns = ["Fecha Programada", "Total Unidades a Servir", "Etapas en la Fecha", "Sedes / OOADs"]
                 
-                # Métrica rápida general
                 st.metric(label="📅 Días con Programación Activa", value=f"{len(df_resumen_dia)} Fechas")
                 st.markdown("---")
                 
-                # Mostrar tabla resumida por día
                 st.dataframe(df_resumen_dia, use_container_width=True, hide_index=True)
                 
                 st.markdown("---")
@@ -428,10 +448,8 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 📂 Expediente Digital & Registro de Orden de Trabajo (OT)")
         st.markdown("Selecciona el tipo de servicio para filtrar los equipos por su fecha programada, atender inconclusos o realizar un reporte de fallo.")
 
-        # Verificar si viene una unidad seleccionada por reprogramación desde la Pestaña 4
         serie_preseleccionada = st.session_state.get("serie_reprogramar_activa", None)
 
-        # 1. Selector del Tipo de Servicio (Incluyendo seguimiento a inconclusos)
         tipos_disponibles = [
             "📅 Mantenimiento Calendarizado (Servicio Programado)",
             "🚨 Reporte de Fallo del Equipo (Correctivo / Extraordinario)",
@@ -553,12 +571,13 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 observaciones_ot = st.text_area("Diagnóstico de Continuidad y Acciones Realizadas en esta Visita")
                 pdf_evidencia = st.file_uploader("Cargar Nueva Orden de Trabajo / Acta Firmada (PDF)", type=["pdf", "png", "jpg"])
                 
-                submitted_ot = st.form_submit_button("💾 Guardar Continuidad y Actualizar Expediente")
+                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
                 if submitted_ot:
                     nuevo_registro = {
                         "tipo_servicio": tipo_etiqueta,
                         "etapa": etapa_asociada,
                         "contrato": contrato_asociado,
+                        "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
                         "serie": serie_sel,
                         "inventario": inv_sel,
                         "fecha": str(fecha_servicio),
@@ -567,13 +586,18 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                         "firmante": nombre_firmante,
                         "observaciones": observaciones_ot
                     }
+                    
                     st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
                     
-                    # Limpiar bandera temporal si existía
+                    try:
+                        supabase.table("historial_mantenimientos").insert([nuevo_registro]).execute()
+                        st.success(f"✅ ¡Servicio registrado y guardado en Supabase para la serie {serie_sel}!")
+                    except Exception as err_db:
+                        st.error(f"❌ Error al guardar en Supabase: {err_db}")
+                    
                     if "serie_reprogramar_activa" in st.session_state:
                         del st.session_state["serie_reprogramar_activa"]
                         
-                    st.success(f"✅ ¡Continuidad registrada con éxito para la serie {serie_sel}! El expediente se ha actualizado.")
                     st.rerun()
 
             st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
