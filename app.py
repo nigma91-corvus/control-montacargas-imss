@@ -299,11 +299,11 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
     c_contrato_key = next((c for c in cols_p if "contrato" in c.lower()), "etapa_contractual")
 
     # ==========================================
-    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES + TOTAL DE VEHÍCULOS
+    # PESTAÑA 1: CALENDARIZACIÓN POR LOTES + CONTROL ANTIDUPLICADOS ESTRICTO
     # ==========================================
     with tab_cmms1:
-        st.markdown("### 🗺️ Calendarización Rápida por Lotes")
-        st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
+        st.markdown("### 🗺️ Calendarización Rápida por Lotes (Control Anti-Duplicados)")
+        st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` (excluyendo unidades ya calendarizadas).")
 
         etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
         etapa_seleccionada = st.selectbox(
@@ -329,48 +329,71 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 df_padron[col_etapa].astype(str).str.lower().str.contains(kw, na=False)
             ].copy()
 
+        # ==========================================
+        # BLINDAJE 1: OBTENER SERIES YA REGISTRADAS EN LA SESIÓN
+        # ==========================================
+        series_ya_calendarizadas = set(str(item.get("serie", "")).strip() for item in st.session_state.equipos_calendarizados)
+        
+        # Excluir tajantemente las series que ya tengan un registro previo
+        if not df_etapa_filtro.empty:
+            total_en_etapa = len(df_etapa_filtro)
+            df_disponibles = df_etapa_filtro[~df_etapa_filtro[c_ser_key].astype(str).str.strip().isin(series_ya_calendarizadas)].copy()
+            omitidas = total_en_etapa - len(df_disponibles)
+            
+            if omitidas > 0:
+                st.info(f"ℹ️ Se han omitido **{omitidas} unidades** de esta etapa que ya cuentan con calendarización previa para blindar el sistema contra duplicados.")
+        else:
+            df_disponibles = df_etapa_filtro
+
         col_ooad = "ooad_estado" if "ooad_estado" in df_padron.columns else c_ooad_key
-        sedes_disponibles_etapa = sorted([s for s in df_etapa_filtro[col_ooad].unique() if str(s).strip() != ""]) if not df_etapa_filtro.empty else []
+        sedes_disponibles_etapa = sorted([s for s in df_disponibles[col_ooad].unique() if str(s).strip() != ""]) if not df_disponibles.empty else []
 
         with st.form("form_calendarizacion_lotes_smart"):
             sedes_lote = st.multiselect(
-                f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) en {etapa_seleccionada}:", 
+                f"📌 2. Filtrar por OOAD / Estado (`ooad_estado`) Disponibles en {etapa_seleccionada}:", 
                 options=sedes_disponibles_etapa
             )
             
             fecha_teorica_lote = st.date_input("📌 3. Fecha Teórica Programada para este Lote", value=date.today())
             
             if sedes_lote:
-                unidades_previstas = df_etapa_filtro[df_etapa_filtro[col_ooad].isin(sedes_lote)]
-                st.caption(f"🔍 **Vista previa:** Se detectaron y agregarán **{len(unidades_previstas)} unidades** correspondientes a `{etapa_seleccionada}`.")
+                unidades_previstas = df_disponibles[df_disponibles[col_ooad].isin(sedes_lote)]
+                st.caption(f"🔍 **Vista previa:** Se agregarán **{len(unidades_previstas)} unidades nuevas** (100% libres de duplicados).")
 
             submitted_lote = st.form_submit_button("➕ Agregar Lote a la Lista Acumulada")
             if submitted_lote and sedes_lote:
                 contador_registros = 0
                 for sede in sedes_lote:
-                    unidades_sede = df_etapa_filtro[df_etapa_filtro[col_ooad] == sede]
+                    unidades_sede = df_disponibles[df_disponibles[col_ooad] == sede]
                     
                     for _, u_row in unidades_sede.iterrows():
-                        etapa_real_val = str(u_row.get(col_etapa, etapa_seleccionada))
-                        contrato_real_val = str(u_row.get("num_contrato", u_row.get("contrato", "J2523" if "3" in etapa_real_val else "J1954")))
+                        serie_actual = str(u_row.get(c_ser_key, "")).strip()
                         
-                        item_cal = {
-                            "etapa": etapa_real_val,
-                            "contrato": contrato_real_val,
-                            "ooad": sede,
-                            "inventario": str(u_row.get(c_inv_key, "")),
-                            "serie": str(u_row.get(c_ser_key, "")),
-                            "fecha_programada": str(fecha_teorica_lote)
-                        }
-                        if item_cal not in st.session_state.equipos_calendarizados:
+                        # BLINDAJE 2: Validación doble por cada unidad antes de meterla
+                        if serie_actual and serie_actual not in series_ya_calendarizadas:
+                            etapa_real_val = str(u_row.get(col_etapa, etapa_seleccionada))
+                            contrato_real_val = str(u_row.get("num_contrato", u_row.get("contrato", "J2523" if "3" in etapa_real_val else "J1954")))
+                            
+                            item_cal = {
+                                "etapa": etapa_real_val,
+                                "contrato": contrato_real_val,
+                                "ooad": sede,
+                                "inventario": str(u_row.get(c_inv_key, "")),
+                                "serie": serie_actual,
+                                "fecha_programada": str(fecha_teorica_lote)
+                            }
                             st.session_state.equipos_calendarizados.append(item_cal)
+                            series_ya_calendarizadas.add(serie_actual) # Actualizar el set local para evitar duplicados en el mismo lote
                             contador_registros += 1
                             
-                st.success(f"✅ Se han agregado {contador_registros} unidades de **{etapa_seleccionada}** exitosamente a la lista.")
+                st.success(f"✅ Se han agregado {contador_registros} unidades nuevas exitosamente a la lista.")
                 st.rerun()
             elif submitted_lote:
                 st.warning("⚠️ Selecciona al menos una sede para continuar.")
 
+        # ==========================================
+        # LISTADO ACUMULADO + BLINDAJE EN EL DATA EDITOR
+        # ==========================================
         st.markdown("---")
         
         if st.session_state.equipos_calendarizados:
@@ -381,6 +404,8 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             with col_b1:
                 if st.button("☁️ Sincronizar Lotes con Supabase"):
                     try:
+                        # Limpiar y reinsertar limpia para evitar duplicados en base de datos
+                        supabase.table("calendarizacion_lotes").delete().neq("id", 0).execute()
                         supabase.table("calendarizacion_lotes").insert(st.session_state.equipos_calendarizados).execute()
                         st.success("✅ ¡Lotes calendarizados sincronizados con éxito en Supabase!")
                     except Exception as e:
@@ -401,73 +426,21 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 key="editor_equipos_calendarizados"
             )
             
-            st.session_state.equipos_calendarizados = df_editado.to_dict("records")
-        else:
-            st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
-
-            # ==========================================
-    # REPORTE DE UNIDADES PENDIENTES DE CALENDARIZAR (POR ETAPA)
-    # ==========================================
-    st.markdown("---")
-    st.markdown("### 📋 Reporte de Unidades Pendientes por Calendarizar")
-    st.markdown("💡 Selecciona una etapa específica para auditar el volumen exacto y la ubicación de los montacargas que aún no tienen fecha asignada.")
-
-    # Botones de selección horizontal para filtrar el reporte por etapa
-    opciones_reporte_etapa = ["🌐 Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
-    etapa_reporte_sel = st.radio(
-        "📌 Filtrar reporte de pendientes por etapa:",
-        options=opciones_reporte_etapa,
-        horizontal=True,
-        key="radio_etapa_reporte_pendientes"
-    )
-
-    # Filtrar el padrón base según la etapa seleccionada para el reporte
-    col_etapa = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
-    
-    if "Todas" not in etapa_reporte_sel:
-        if "Etapa 1" in etapa_reporte_sel:
-            kw = "etapa 1"
-        elif "Etapa 2" in etapa_reporte_sel:
-            kw = "etapa 2"
-        else:
-            kw = "etapa 3"
-        df_padron_base_reporte = df_padron[
-            df_padron[col_etapa].astype(str).str.lower().str.contains(kw, na=False)
-        ].copy()
-    else:
-        df_padron_base_reporte = df_padron.copy()
-
-    # 1. Extraer series ya calendarizadas en sesión
-    series_calendarizadas = set(str(item.get("serie", "")).strip() for item in st.session_state.equipos_calendarizados)
-
-    # 2. Obtener las pendientes de esa base filtrada
-    df_pendientes = df_padron_base_reporte[~df_padron_base_reporte[c_ser_key].astype(str).str.strip().isin(series_calendarizadas)].copy()
-
-    total_pendientes = len(df_pendientes)
-    total_padron_base = len(df_padron_base_reporte)
-    porcentaje_avance = ((total_padron_base - total_pendientes) / total_padron_base * 100) if total_padron_base > 0 else 0
-
-    # 3. Mostrar métricas de control ajustadas a la selección
-    col_p1, col_p2, col_p3 = st.columns(3)
-    col_p1.metric(f"Total en {etapa_reporte_sel.replace('🌐 ', '')}", f"{total_padron_base} Unidades")
-    col_p2.metric("Pendientes de Calendarizar", f"{total_pendientes} Unidades", delta=f"-{total_pendientes}" if total_pendientes > 0 else "0", delta_color="inverse")
-    col_p3.metric("Avance de Calendarización", f"{porcentaje_avance:.1f}%")
-
-    if total_pendientes > 0:
-        # Agrupar pendientes por Sede / OOAD para ver cantidad por ubicación en la etapa seleccionada
-        df_resumen_pendientes = df_pendientes.groupby(col_ooad).agg(
-            Unidades_Pendientes=(c_inv_key, "count")
-        ).reset_index()
-        df_resumen_pendientes.columns = ["Sede / OOAD", "Unidades Pendientes"]
-        df_resumen_pendientes = df_resumen_pendientes.sort_values(by="Unidades Pendientes", ascending=False)
-
-        st.markdown(f"#### 📍 Desglose por Sede (OOAD) - {etapa_reporte_sel.replace('🌐 ', '')}")
-        st.dataframe(df_resumen_pendientes, use_container_width=True, hide_index=True)
-
-        with st.expander(f"🔍 Ver listado detallado de unidades pendientes ({etapa_reporte_sel.replace('🌐 ', '')})"):
-            st.dataframe(df_pendientes, use_container_width=True, hide_index=True)
-    else:
-        st.success(f"🎉 ¡Excelente noticia! El 100% de las unidades correspondientes a `{etapa_reporte_sel.replace('🌐 ', '')}` ya se encuentran calendarizadas.")
+            # BLINDAJE 3: Limpiar duplicados si el usuario escribe o duplica filas en el data_editor
+            lista_cruda = df_editado.to_dict("records")
+            lista_limpia = []
+            series_vistas_editor = set()
+            
+            for item in lista_cruda:
+                s_val = str(item.get("serie", "")).strip()
+                if s_val and s_val not in series_vistas_editor:
+                    series_vistas_editor.add(s_val)
+                    lista_limpia.append(item)
+                elif not s_val:
+                    # Permitir filas vacías temporales si el usuario está tipeando
+                    lista_limpia.append(item)
+                    
+            st.session_state.equipos_calendarizados = lista_limpia
 
     # ==========================================
     # PESTAÑA 2: CALENDARIO RESUMIDO POR DÍA
