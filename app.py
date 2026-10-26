@@ -571,103 +571,11 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 etapa_asociada = str(eq_data.get("etapa_contractual", "N/D"))
                 contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
 
-        if serie_sel:
-            st.markdown("---")
-            col_info1, col_info2, col_info3 = st.columns(3)
-            col_info1.metric("Inventario", inv_sel)
-            col_info2.metric("Número de Serie", serie_sel)
-            col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
-            
-            tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
-            st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
-            
-            with st.form(f"form_captura_ot_{serie_sel}_v5"):
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    fecha_servicio = st.date_input("Fecha de Visita / Cierre de Continuidad", value=fecha_sugerida)
-                    nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
-                with col_f2:
-                    estatus_pantone = st.selectbox(
-                        "Estatus Actualizado",
-                        [
-                            "🟢 Concluido (100%)",
-                            "🟡 Sigue Inconcluso / Requiere Nueva Refacción",
-                            "🔴 No Realizado"
-                        ]
-                    )
-                    nombre_firmante = st.text_input("Nombre y Cargo de Quien Firmó de Conformidad")
-                
-                observaciones_ot = st.text_area("Diagnóstico de Continuidad y Acciones Realizadas en esta Visita")
-                pdf_evidencia = st.file_uploader("Cargar Nueva Orden de Trabajo / Acta Firmada (PDF)", type=["pdf", "png", "jpg"])
-                
-                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
-            
-            submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
-                submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
-                if submitted_ot:
-                    nuevo_registro = {
-                        "tipo_servicio": tipo_etiqueta,
-                        "etapa": etapa_asociada,
-                        "contrato": contrato_asociado,
-                        "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
-                        "serie": serie_sel,
-                        "inventario": inv_sel,
-                        "fecha": str(fecha_servicio),
-                        "tecnico": nombre_tecnico,
-                        "estatus": estatus_pantone,
-                        "firmante": nombre_firmante,
-                        "observaciones": observaciones_ot
-                    }
-                    
-                    try:
-                        # 1. Guardar el historial en Supabase
-                        supabase.table("historial_mantenimientos").insert(nuevo_registro).execute()
-                        st.session_state.historial_mantenimientos_local.insert(0, nuevo_registro)
-                        
-                        # ==========================================
-                        # 2. LÓGICA DE LIBERACIÓN DE CALENDARIO VENCIDO
-                        # ==========================================
-                        # Tanto si concluyó como si quedó inconcluso, la visita de esta fecha ya se cerró.
-                        # Lo removemos del lote calendarizado activo para que la unidad NO se quede atrapada 
-                        # y pueda ser considerada en futuros calendarios si la operación lo requiere.
-                        st.session_state.equipos_calendarizados = [
-                            item for item in st.session_state.equipos_calendarizados 
-                            if str(item.get("serie", "")).strip() != str(serie_sel).strip()
-                        ]
-                        
-                        # Remover de la tabla de lotes activos en Supabase
-                        supabase.table("calendarizacion_lotes").delete().eq("serie", str(serie_sel)).execute()
-                        
-                        if "Concluido" in estatus_pantone:
-                            st.success(f"✅ ¡Servicio CONCLUIDO para la serie {serie_sel}! Unidad liberada exitosamente.")
-                        else:
-                            st.warning(f"⚠️ Servicio registrado como {estatus_pantone}. La unidad se ha enviado a la Bandeja de Inconclusos (Tab 4) para seguimiento, y el calendario actual ha quedado libre para futuras programaciones.")
-                            
-                    except Exception as err_db:
-                        st.error(f"❌ Error al procesar en Supabase: {str(err_db)}")
-                    
-                    if "serie_reprogramar_activa" in st.session_state:
-                        del st.session_state["serie_reprogramar_activa"]
-                        
-                    st.rerun()
-
-            st.markdown("#### 📜 Historial Completo y Trazabilidad de este Equipo")
-            historial_equipo = [s for s in st.session_state.historial_mantenimientos_local if s.get("serie") == serie_sel]
-            if historial_equipo:
-                for i, serv in enumerate(historial_equipo):
-                    cols_hist = st.columns([5, 1])
-                    with cols_hist[0]:
-                        badge_tipo = serv.get('tipo_servicio', 'Servicio')
-                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
-                        st.caption(f"Obs: {serv['observaciones']}")
-                    with cols_hist[1]:
-                        if st.button("🗑️ Borrar", key=f"btn_del_v5_{serie_sel}_{i}"):
-                            st.session_state.historial_mantenimientos_local.remove(serv)
-                            st.success("✅ ¡Registro eliminado correctamente!")
-                            st.rerun()
-                    st.markdown("---")
-            else:
-                st.info("ℹ️ No hay servicios registrados localmente para esta unidad.")
+        Script execution error
+File "/mount/src/control-montacargas-imss/app.py", line 606
+                  submitted_ot = st.form_submit_button("💾 Guardar y Sincronizar con Supabase")
+                 ^
+IndentationError: unexpected indent
 
     # ==========================================
     # PESTAÑA 4: BANDEJA DE INCONCLUSOS & REPROGRAMACIÓN
