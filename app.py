@@ -289,9 +289,13 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` correspondientes.")
 
         with st.form("form_calendarizacion_lotes_smart"):
-            # 1. PRIMER FILTRO: Columna "etapa_contractual"
+            # 1. PRIMER FILTRO: Columna "etapa_contractual" (Con key para mantener selección activa)
             etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
-            etapa_seleccionada = st.selectbox("📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", options=etapas_disponibles)
+            etapa_seleccionada = st.selectbox(
+                "📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", 
+                options=etapas_disponibles,
+                key="select_etapa_contrato_lote"
+            )
             
             # Apuntar directamente a la columna real de Supabase
             col_etapa = "etapa_contractual" if "etapa_contractual" in df_padron.columns else c_contrato_key
@@ -376,6 +380,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             st.dataframe(pd.DataFrame(st.session_state.equipos_calendarizados), use_container_width=True, hide_index=True)
         else:
             st.info("ℹ️ Aún no hay unidades acumuladas. Selecciona la etapa y sedes arriba para agregar.")
+
     # ==========================================
     # PESTAÑA 2: CALENDARIO ACTIVO & SEMÁFORO PANTONE
     # ==========================================
