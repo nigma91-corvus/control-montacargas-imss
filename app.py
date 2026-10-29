@@ -38,6 +38,19 @@ st.markdown("""
         background-color: #FFFFFF !important;
     }
     
+    /* 🟢 Forzar fondo blanco y texto oscuro en los menús desplegables flotantes (popovers / listbox) */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+        background-color: #FFFFFF !important;
+    }
+    div[data-baseweb="popover"] *, div[data-baseweb="menu"] *, ul[role="listbox"] li, ul[role="listbox"] li span, ul[role="listbox"] div {
+        color: #1F2937 !important;
+        background-color: #FFFFFF !important;
+    }
+    ul[role="listbox"] li:hover {
+        background-color: #E5E7EB !important;
+        color: #111827 !important;
+    }
+
     /* 🟢 Textos generales de la app en color oscuro fuerte para buen contraste */
     p, span, label, div, h1, h2, h3, h4, h5, h6 {
         color: #1F2937;
