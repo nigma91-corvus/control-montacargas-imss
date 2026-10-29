@@ -121,18 +121,19 @@ st.markdown("""
     }
 
     /* 🟢 ESTILOS DE IMPRESIÓN HORIZONTAL - PROTAGONISMO DE GRÁFICA Y DISEÑO LIGERO */
+    /* 🟢 ESTILOS DE IMPRESIÓN BLINDADOS - 1 SOLA PÁGINA HORIZONTAL */
     @media print {
         @page {
-            size: landscape; /* Forzar hoja horizontal por defecto */
-            margin: 0.8cm;
+            size: landscape;
+            margin: 0.5cm;
         }
 
-        /* Ocultar barra lateral, botones, subtítulos largos y elementos de interfaz */
+        /* Ocultar elementos innecesarios */
         [data-testid="stSidebar"], button, .stButton, header, footer, iframe, .sub-title {
             display: none !important;
         }
         
-        /* Fondo blanco impoluto en toda la página */
+        /* Contenedor principal de ancho y alto estrictos */
         html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
             background: #FFFFFF !important;
@@ -141,22 +142,25 @@ st.markdown("""
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            overflow: hidden !important; /* Evita que cree páginas extra */
         }
 
-        /* Título principal más limpio y compacto */
+        /* Título compacto */
         h1 {
-            font-size: 18px !important;
+            font-size: 16px !important;
             color: #005A36 !important;
-            margin-bottom: 2px !important;
-            padding-bottom: 0 !important;
+            margin: 0 0 5px 0 !important;
+            padding: 0 !important;
         }
 
-        /* Ocultar selectores y filtros de selección al imprimir para limpiar el encabezado */
+        /* Ocultar selectores de filtros en la impresión */
         div[data-baseweb="select"], .stMultiSelect {
             display: none !important;
         }
 
-        /* Distribuir las tarjetas de métricas en una sola línea horizontal compacta */
+        /* Tarjetas de métricas en línea ajustadas */
         div[data-testid="column"] {
             width: 19% !important;
             display: inline-block !important;
@@ -164,38 +168,38 @@ st.markdown("""
             vertical-align: top;
         }
 
-        /* Tarjetas de métricas discretas y ligeras */
         [data-testid="stMetric"] {
             background-color: #FFFFFF !important;
-            border: 1px solid #D1D5DB !important;
-            padding: 6px 8px !important;
+            border: 1px solid #9CA3AF !important;
+            padding: 4px 6px !important;
             border-radius: 4px !important;
             box-shadow: none !important;
-            margin-bottom: 10px !important;
+            margin-bottom: 5px !important;
         }
         [data-testid="stMetric"] label {
             font-size: 10px !important;
             color: #4B5563 !important;
         }
         [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            font-size: 14px !important;
+            font-size: 13px !important;
             color: #005A36 !important;
         }
 
-        /* 📊 HACER QUE LA GRÁFICA SEA LA PROTAGONISTA ABSOLUTA CON MÁXIMO ESPACIO */
+        /* Gráfica contenida estrictamente para que no rebase la hoja */
         h3 {
-            font-size: 14px !important;
-            margin-top: 5px !important;
-            margin-bottom: 5px !important;
+            font-size: 12px !important;
+            margin: 5px 0 !important;
         }
 
         .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
             width: 100% !important;
             max-width: 100% !important;
-            height: auto !important;
-            min-height: 420px !important; /* Gran espacio para la gráfica */
-            overflow: visible !important;
+            height: 280px !important;
+            max-height: 280px !important;
+            overflow: hidden !important;
             page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            page-break-before: avoid !important;
         }
     }
     </style>
