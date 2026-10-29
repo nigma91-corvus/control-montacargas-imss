@@ -423,9 +423,8 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         )
 
-        
-        # Capa de barras con opacidad sólida garantizada
-        bars = base_chart.mark_bar(opacity=1.0, filled=True)
+        # Capa de barras
+        bars = base_chart.mark_bar()
 
         # 🟢 Capa de texto para mostrar el número exacto dentro de cada bloque de color
         text = base_chart.mark_text(
@@ -437,10 +436,13 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             text=alt.Text('Unidades:Q', format='d')
         )
 
-        # Combinar capas de barras y texto
+        # Combinar capas de barras y texto aplicando opacidad sólida global
         chart = (bars + text).properties(
             height=380,
             autosize={'type': 'fit', 'contains': 'padding'}
+        ).configure_mark(
+            opacity=1.0,  # Fuerza opacidad total en todas las marcas
+            filled=True   # Asegura relleno sólido
         ).configure_view(
             strokeWidth=0, 
             fill='white'
