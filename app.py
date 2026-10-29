@@ -746,6 +746,9 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 with st.container():
                     col_inc1, col_inc2 = st.columns([4, 1])
                     with col_inc1:
+                        # Se agrega la OOAD / Sede directamente en el encabezado visible
+                        sede_inc = inc.get('ooad', 'Sede no especificada')
+                        st.markdown(f"📍 **Sede / OOAD:** {sede_inc}")
                         st.markdown(f"🚨 **Serie:** {inc['serie']} | **Inventario:** {inc['inventario']} | **Fecha Última:** {inc['fecha']}")
                         st.markdown(f"⚠️ **Estatus:** {inc['estatus']}")
                         st.caption(f"**Motivo / Observación:** {inc['observaciones']}")
