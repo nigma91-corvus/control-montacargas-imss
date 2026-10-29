@@ -79,6 +79,19 @@ st.markdown("""
     p, span, label {
         color: #1F2937 !important;
     }
+
+    /* 🟢 Estilos exclusivos para impresión limpia (Oculta menús y botones) */
+    @media print {
+        [data-testid="stSidebar"], button, .stButton, header {
+            display: none !important;
+        }
+        .main {
+            background-color: #FFFFFF !important;
+        }
+        body {
+            color: #000000 !important;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
