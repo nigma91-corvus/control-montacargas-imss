@@ -120,11 +120,11 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* 🟢 ESTILOS EXCLUSIVOS DE IMPRESIÓN REFORZADOS CON AJUSTE AUTOMÁTICO DE GRÁFICA */
+    /* Estilos exclusivos de impresion optimizados para una sola hoja ejecutiva */
     @media print {
         @page {
-            size: landscape; /* Configura la pagina por defecto en horizontal para maximizar espacio */
-            margin: 1cm;
+            size: landscape;
+            margin: 0.5cm; /* Margen reducido para aprovechar todo el espacio */
         }
 
         /* Ocultar elementos de navegacion e interfaz */
@@ -132,35 +132,55 @@ st.markdown("""
             display: none !important;
         }
         
-        /* Forzar fondo blanco impoluto */
+        /* Forzar fondo blanco y eliminar saltos de pagina innecesarios */
         html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
             background: #FFFFFF !important;
             color: #000000 !important;
-            padding: 0 !important;
+            padding: 5px !important;
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
         }
 
-        /* Forzar textos legibles en negro */
+        /* Forzar textos legibles en negro y compactar espacios */
         p, span, label, div, h1, h2, h3, h4, h5, h6, .main-title, .sub-title {
             color: #000000 !important;
+            line-height: 1.2 !important;
         }
 
-        /* Ajuste estricto para que las graficas y contenedores de Altair NO se corten */
-        .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow: visible !important;
-            page-break-inside: avoid !important;
+        /* Contenedores de metricas en una sola linea compacta */
+        div[data-testid="column"] {
+            width: 19% !important;
+            display: inline-block !important;
+            padding: 2px !important;
         }
 
-        /* Tarjetas de metricas */
+        /* Tarjetas de metricas mas compactas para que no ocupen altura de mas */
         [data-testid="stMetric"] {
             background-color: #FFFFFF !important;
             border: 1px solid #000000 !important;
+            padding: 8px !important;
+            border-radius: 6px !important;
             box-shadow: none !important;
+        }
+        [data-testid="stMetric"] label {
+            font-size: 11px !important;
+        }
+        [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+            font-size: 16px !important;
+            color: #005A36 !important;
+        }
+
+        /* Ajuste estricto para que la grafica quepa completa y sin cortes */
+        .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 320px !important;
+            overflow: visible !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
         }
     }
     </style>
