@@ -120,43 +120,47 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* 🟢 ESTILOS EXCLUSIVOS DE IMPRESIÓN REFORZADOS (BLANCO TOTAL Y ALTO CONTRASTE) */
+    /* 🟢 ESTILOS EXCLUSIVOS DE IMPRESIÓN REFORZADOS CON AJUSTE AUTOMÁTICO DE GRÁFICA */
     @media print {
-        /* Ocultar barra lateral, botones, encabezados de app y elementos de navegacion */
+        @page {
+            size: landscape; /* Configura la pagina por defecto en horizontal para maximizar espacio */
+            margin: 1cm;
+        }
+
+        /* Ocultar elementos de navegacion e interfaz */
         [data-testid="stSidebar"], button, .stButton, header, footer, iframe {
             display: none !important;
         }
         
-        /* Forzar fondo blanco impoluto en toda la pagina */
+        /* Forzar fondo blanco impoluto */
         html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
             background: #FFFFFF !important;
             color: #000000 !important;
             padding: 0 !important;
             margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
         }
 
-        /* Forzar textos en negro puro e intencional */
+        /* Forzar textos legibles en negro */
         p, span, label, div, h1, h2, h3, h4, h5, h6, .main-title, .sub-title {
             color: #000000 !important;
         }
 
-        /* Mantener tarjetas claras con bordes oscuros para impresion */
+        /* Ajuste estricto para que las graficas y contenedores de Altair NO se corten */
+        .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: visible !important;
+            page-break-inside: avoid !important;
+        }
+
+        /* Tarjetas de metricas */
         [data-testid="stMetric"] {
             background-color: #FFFFFF !important;
             border: 1px solid #000000 !important;
             box-shadow: none !important;
-        }
-        [data-testid="stMetric"] label {
-            color: #000000 !important;
-        }
-        [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            color: #005A36 !important;
-        }
-
-        /* Asegurar que las graficas tengan fondo blanco al imprimirse */
-        canvas, svg {
-            background-color: #FFFFFF !important;
         }
     }
     </style>
@@ -333,14 +337,14 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF']  # Verde IMSS, Azul, Ámbar, Gris
         )
 
-        # 3. Construcción del gráfico de barras apiladas con leyenda y ejes de alta visibilidad
+        # 3. Construcción del gráfico de barras apiladas con autosize responsive
         chart = alt.Chart(counts_ooad_etapa).mark_bar().encode(
             x=alt.X('ooad_estado:N', title='OOAD / Estado', sort='-y', 
                     axis=alt.Axis(
                         labelAngle=-45, 
                         labelColor='#111827', 
                         titleColor='#111827', 
-                        labelFontSize=11,
+                        labelFontSize=10,
                         labelFontWeight='bold',
                         labelOverlap=False
                     )),
@@ -364,13 +368,14 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             ),
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         ).properties(
-            width=alt.Step(38), 
-            height=400
+            height=350
         ).configure_view(
             strokeWidth=0, 
             fill='white'
         ).configure(
             background='white'
+        ).properties(
+            autosize=alt.AutoSizingConfig(type='fit', contains='padding')
         )
         
         st.altair_chart(chart, use_container_width=True)
