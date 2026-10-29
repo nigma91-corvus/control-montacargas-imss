@@ -17,6 +17,7 @@ st.set_page_config(
 
 # Estilos limpios sobre fondo claro con acentos institucionales y forzado de inputs legibles
 st.markdown("""
+    st.markdown("""
     <style>
     /* 🟢 Fondo general claro y tipografía legible */
     .stApp {
@@ -39,16 +40,50 @@ st.markdown("""
     }
     
     /* 🟢 Forzar fondo blanco y texto oscuro en los menús desplegables flotantes (popovers / listbox) */
-    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], div[role="listbox"] {
         background-color: #FFFFFF !important;
     }
-    div[data-baseweb="popover"] *, div[data-baseweb="menu"] *, ul[role="listbox"] li, ul[role="listbox"] li span, ul[role="listbox"] div {
+    div[data-baseweb="popover"] *, div[data-baseweb="menu"] *, ul[role="listbox"] *, div[role="listbox"] * {
         color: #1F2937 !important;
         background-color: #FFFFFF !important;
     }
-    ul[role="listbox"] li:hover {
+    ul[role="listbox"] li, div[role="option"], option {
+        background-color: #FFFFFF !important;
+        color: #1F2937 !important;
+    }
+    ul[role="listbox"] li:hover, div[role="option"]:hover {
         background-color: #E5E7EB !important;
         color: #111827 !important;
+    }
+
+    /* 🟢 Forzar calendario (date_input) claro y legible */
+    div[data-baseweb="calendar"], div[data-baseweb="datepicker"] {
+        background-color: #FFFFFF !important;
+        color: #1F2937 !important;
+    }
+    div[data-baseweb="calendar"] * {
+        color: #1F2937 !important;
+    }
+
+    /* 🟢 Corrección para etiquetas de código (texto entre backticks) */
+    code {
+        background-color: #E5E7EB !important;
+        color: #005A36 !important;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    /* 🟢 Botones de envío de formularios en Verde IMSS con texto blanco destacado */
+    .stFormSubmitButton button, button[type="submit"] {
+        background-color: #005A36 !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        font-weight: 600 !important;
+    }
+    .stFormSubmitButton button:hover, button[type="submit"]:hover {
+        background-color: #004D25 !important;
+        color: #FFFFFF !important;
     }
 
     /* 🟢 Textos generales de la app en color oscuro fuerte para buen contraste */
