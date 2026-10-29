@@ -18,35 +18,35 @@ st.set_page_config(
 # Estilos limpios sobre fondo claro con acentos institucionales y forzado de inputs legibles
 st.markdown("""
     <style>
+    /* 🟢 Fondo general claro y tipografía legible */
     .stApp {
         background-color: #F8F9FA;
         color: #1F2937;
     }
     
-    /* Barra lateral institucional en Verde IMSS (#005A36) */
+    /* 🟢 Barra lateral institucional en Verde IMSS y texto blanco */
     [data-testid="stSidebar"] {
-        background-color: #005A36;
-        color: #FFFFFF;
+        background-color: #005A36 !important;
     }
-    [data-testid="stSidebar"] .stRadio label {
+    [data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] span, [data-testid="stSidebar"] p {
         color: #FFFFFF !important;
-        font-weight: 500;
     }
-    [data-testid="stSidebar"] .stMarkdown {
-        color: #FFFFFF;
+    
+    /* 🟢 Forzar texto oscuro legible en selectores, inputs y áreas de texto */
+    .stTextInput input, .stTextArea textarea, .stSelectbox select, div[data-baseweb="select"] div {
+        color: #1F2937 !important;
+        background-color: #FFFFFF !important;
+    }
+    
+    /* 🟢 Textos generales de la app en color oscuro fuerte para buen contraste */
+    p, span, label, div, h1, h2, h3, h4, h5, h6 {
+        color: #1F2937;
     }
 
-    /* Encabezados principales */
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #005A36;
-        margin-bottom: 0px;
-    }
-    .sub-title {
-        font-size: 1.05rem;
-        color: #4B5563;
-        margin-bottom: 25px;
+    /* 🟢 Excepción para mantener los títulos y textos dentro de la barra lateral en blanco */
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
+    [data-testid="stSidebar"] span, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
+        color: #FFFFFF !important;
     }
 
     /* Tarjetas de métricas estilizadas claras */
@@ -65,22 +65,15 @@ st.markdown("""
         color: #005A36 !important;
     }
 
-    /* Forzar visibilidad y color claro en formularios e inputs */
+    /* Formularios limpios */
     .stForm {
         background-color: #FFFFFF !important;
         border: 1px solid #E5E7EB !important;
         padding: 20px !important;
         border-radius: 10px !important;
     }
-    .stTextInput input, .stTextArea textarea, .stSelectbox select {
-        color: #1F2937 !important;
-        background-color: #FFFFFF !important;
-    }
-    p, span, label {
-        color: #1F2937 !important;
-    }
 
-    /* 🟢 Estilos exclusivos para impresión limpia (Oculta menús y botones) */
+    /* Estilos de impresión limpia */
     @media print {
         [data-testid="stSidebar"], button, .stButton, header {
             display: none !important;
