@@ -423,8 +423,9 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         )
 
-        # Capa de barras
-        bars = base_chart.mark_bar()
+        
+        # Capa de barras con opacidad sólida garantizada
+        bars = base_chart.mark_bar(opacity=1.0, filled=True)
 
         # 🟢 Capa de texto para mostrar el número exacto dentro de cada bloque de color
         text = base_chart.mark_text(
