@@ -120,20 +120,19 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* 🟢 ESTILOS DE IMPRESIÓN HORIZONTAL - PROTAGONISMO DE GRÁFICA Y DISEÑO LIGERO */
-    /* 🟢 ESTILOS DE IMPRESIÓN BLINDADOS - 1 SOLA PÁGINA HORIZONTAL */
+    /* 🟢 ESTILOS DE IMPRESIÓN OPTIMIZADOS - 1 PÁGINA HORIZONTAL VISIBLE */
     @media print {
         @page {
             size: landscape;
-            margin: 0.5cm;
+            margin: 0.6cm;
         }
 
-        /* Ocultar elementos innecesarios */
-        [data-testid="stSidebar"], button, .stButton, header, footer, iframe, .sub-title {
+        /* Ocultar barra lateral, botones, selectores y elementos de interfaz */
+        [data-testid="stSidebar"], button, .stButton, header, footer, iframe, .sub-title, div[data-baseweb="select"], .stMultiSelect {
             display: none !important;
         }
         
-        /* Contenedor principal de ancho y alto estrictos */
+        /* Forzar fondo blanco y visibilidad total */
         html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
             background: #FFFFFF !important;
@@ -142,25 +141,17 @@ st.markdown("""
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
-            height: 100vh !important;
-            max-height: 100vh !important;
-            overflow: hidden !important; /* Evita que cree páginas extra */
+            overflow: visible !important;
         }
 
-        /* Título compacto */
+        /* Título principal limpio */
         h1 {
             font-size: 16px !important;
             color: #005A36 !important;
-            margin: 0 0 5px 0 !important;
-            padding: 0 !important;
+            margin: 0 0 8px 0 !important;
         }
 
-        /* Ocultar selectores de filtros en la impresión */
-        div[data-baseweb="select"], .stMultiSelect {
-            display: none !important;
-        }
-
-        /* Tarjetas de métricas en línea ajustadas */
+        /* Distribuir las tarjetas de métricas en una sola línea horizontal */
         div[data-testid="column"] {
             width: 19% !important;
             display: inline-block !important;
@@ -168,38 +159,37 @@ st.markdown("""
             vertical-align: top;
         }
 
+        /* Tarjetas de métricas compactas */
         [data-testid="stMetric"] {
             background-color: #FFFFFF !important;
             border: 1px solid #9CA3AF !important;
-            padding: 4px 6px !important;
+            padding: 5px 8px !important;
             border-radius: 4px !important;
             box-shadow: none !important;
-            margin-bottom: 5px !important;
+            margin-bottom: 8px !important;
         }
         [data-testid="stMetric"] label {
             font-size: 10px !important;
             color: #4B5563 !important;
         }
         [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            font-size: 13px !important;
+            font-size: 14px !important;
             color: #005A36 !important;
         }
 
-        /* Gráfica contenida estrictamente para que no rebase la hoja */
+        /* Gráfica protagonista ajustada para la hoja horizontal */
         h3 {
-            font-size: 12px !important;
+            font-size: 13px !important;
             margin: 5px 0 !important;
         }
 
         .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
             width: 100% !important;
             max-width: 100% !important;
-            height: 280px !important;
-            max-height: 280px !important;
-            overflow: hidden !important;
+            height: auto !important;
+            max-height: 380px !important;
             page-break-inside: avoid !important;
             page-break-after: avoid !important;
-            page-break-before: avoid !important;
         }
     }
     </style>
