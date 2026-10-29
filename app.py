@@ -236,13 +236,36 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF'] # Verde IMSS, Azul, Ámbar, Gris
         )
 
-        # 3. Construcción del gráfico de barras apiladas
+        # 3. Construcción del gráfico de barras apiladas con leyenda y ejes de alta visibilidad
         chart = alt.Chart(counts_ooad_etapa).mark_bar().encode(
             x=alt.X('ooad_estado:N', title='OOAD / Estado', sort='-y', 
-                    axis=alt.Axis(labelAngle=-45, labelColor='#1F2937', labelOverlap=False)),
+                    axis=alt.Axis(
+                        labelAngle=-45, 
+                        labelColor='#111827', 
+                        titleColor='#111827', 
+                        labelFontSize=11,
+                        labelFontWeight='bold',
+                        labelOverlap=False
+                    )),
             y=alt.Y('Unidades:Q', title='Número de Unidades', 
-                    axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB', format='d')),
-            color=alt.Color('etapa_contractual:N', scale=colores_etapa, title='Etapa Contractual'),
+                    axis=alt.Axis(
+                        labelColor='#111827', 
+                        titleColor='#111827', 
+                        grid=True, 
+                        gridColor='#E5E7EB', 
+                        format='d'
+                    )),
+            # 🟢 Forzar color oscuro en título y etiquetas de la leyenda aquí:
+            color=alt.Color(
+                'etapa_contractual:N', 
+                scale=colores_etapa, 
+                legend=alt.Legend(
+                    title='Etapa Contractual',
+                    titleColor='#111827',
+                    titleFontWeight='bold',
+                    labelColor='#111827'
+                )
+            ),
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         ).properties(
             width=alt.Step(38), 
