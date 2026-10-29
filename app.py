@@ -120,16 +120,43 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* Estilos de impresion limpia */
+    /* 🟢 ESTILOS EXCLUSIVOS DE IMPRESIÓN REFORZADOS (BLANCO TOTAL Y ALTO CONTRASTE) */
     @media print {
-        [data-testid="stSidebar"], button, .stButton, header {
+        /* Ocultar barra lateral, botones, encabezados de app y elementos de navegacion */
+        [data-testid="stSidebar"], button, .stButton, header, footer, iframe {
             display: none !important;
         }
-        .main {
+        
+        /* Forzar fondo blanco impoluto en toda la pagina */
+        html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
-        }
-        body {
+            background: #FFFFFF !important;
             color: #000000 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Forzar textos en negro puro e intencional */
+        p, span, label, div, h1, h2, h3, h4, h5, h6, .main-title, .sub-title {
+            color: #000000 !important;
+        }
+
+        /* Mantener tarjetas claras con bordes oscuros para impresion */
+        [data-testid="stMetric"] {
+            background-color: #FFFFFF !important;
+            border: 1px solid #000000 !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stMetric"] label {
+            color: #000000 !important;
+        }
+        [data-testid="stMetric"] div[data-testid="stMetricValue"] {
+            color: #005A36 !important;
+        }
+
+        /* Asegurar que las graficas tengan fondo blanco al imprimirse */
+        canvas, svg {
+            background-color: #FFFFFF !important;
         }
     }
     </style>
