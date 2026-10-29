@@ -618,7 +618,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     inv_sel = reg_ant["inventario"]
                     etapa_asociada = reg_ant.get("etapa", "N/D")
                     contrato_asociado = reg_ant.get("contrato", "N/D")
-                    eq_data = {"ooad": "Seguimiento en Sitio"}
+                    eq_data = {"ooad": reg_ant.get("ooad", "Seguimiento en Sitio")}
                     st.info(f"💡 **Nota:** Está atendiendo la continuidad del servicio previo con observaciones: *'{reg_ant.get('observaciones','')}'*")
 
         else:
@@ -626,7 +626,8 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             for idx, row in df_padron.iterrows():
                 inv_v = str(row.get(c_inv_key, "N/D"))
                 ser_v = str(row.get(c_ser_key, "N/D"))
-                ooad_v = str(row.get(c_ooad_key, "N/D"))
+                # 🟢 LECTURA SEGURA DE LA OOAD DESDE EL PADRÓN
+                ooad_v = str(row.get("ooad_estado", row.get(c_ooad_key, "N/D")))
                 label_eq = f"Sede: {ooad_v} | Inv: {inv_v} | Serie: {ser_v}"
                 opciones_equipos_cmms[label_eq] = row
 
@@ -640,11 +641,25 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
 
         if serie_sel:
+            # 🟢 EXTRACCIÓN ROBUSTA DE LA OOAD REAL (BUSCA EN TODAS LAS VARIANTES)
+            ooad_real = "N/D"
+            if isinstance(eq_data, dict):
+                ooad_real = eq_data.get("ooad", eq_data.get("ooad_estado", eq_data.get(c_ooad_key, "N/D")))
+            elif hasattr(eq_data, "get"):
+                ooad_real = str(eq_data.get("ooad_estado", eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D"))))
+            
+            # Si aún viniera vacío o N/D, lo rastreamos directamente del padrón general
+            if str(ooad_real).strip().upper() in ["N/D", "NONE", "NAN", ""]:
+                match_p = df_padron[df_padron[c_ser_key].astype(str).str.strip() == str(serie_sel).strip()]
+                if not match_p.empty:
+                    col_ooad_p = "ooad_estado" if "ooad_estado" in df_padron.columns else c_ooad_key
+                    ooad_real = match_p.iloc[0].get(col_ooad_p, "N/D")
+
             st.markdown("---")
             col_info1, col_info2, col_info3 = st.columns(3)
             col_info1.metric("Inventario", inv_sel)
             col_info2.metric("Número de Serie", serie_sel)
-            col_info3.metric("Sede / OOAD", str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"))
+            col_info3.metric("Sede / OOAD", ooad_real)
             
             tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
             st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
@@ -675,7 +690,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     "tipo_servicio": tipo_etiqueta,
                     "etapa": etapa_asociada,
                     "contrato": contrato_asociado,
-                    "ooad": str(eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D")) if isinstance(eq_data, dict) else "N/D"),
+                    "ooad": str(ooad_real),  # 🟢 AQUÍ YA VIAJA LA OOAD REAL Y LIMPIA
                     "serie": serie_sel,
                     "inventario": inv_sel,
                     "fecha": str(fecha_servicio),
