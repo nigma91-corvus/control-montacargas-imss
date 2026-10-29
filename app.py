@@ -166,7 +166,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     with col_f1:
         filtro_etapa_dash = st.selectbox(
             "🎯 Filtrar Dashboard por Etapa:",
-            ["Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)", "Etapa 4"]
+            ["Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2025)", "Etapa 4"]
         )
     
     df_dash = df_padron.copy()
@@ -305,7 +305,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 🗺️ Calendarización Rápida por Lotes (Control Anti-Duplicados)")
         st.markdown("💡 **Jerarquía Aplicada:** 1° Filtrado por `etapa_contractual` ➡️ 2° Filtrado de `ooad_estado` (excluyendo unidades ya calendarizadas).")
 
-        etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
+        etapas_disponibles = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2025)"]
         etapa_seleccionada = st.selectbox(
             "📌 1. Filtrar por Etapa Contractual (`etapa_contractual`):", 
             options=etapas_disponibles,
@@ -463,7 +463,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 📋 Reporte de Unidades Pendientes por Calendarizar")
         st.markdown("💡 Selecciona una etapa específica para auditar el volumen exacto y la ubicación de los montacargas que aún no tienen fecha asignada.")
 
-        opciones_reporte_etapa = ["🌐 Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2024)"]
+        opciones_reporte_etapa = ["🌐 Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2025)"]
         etapa_reporte_sel = st.radio(
             "📌 Filtrar reporte de pendientes por etapa:",
             options=opciones_reporte_etapa,
