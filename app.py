@@ -17,15 +17,14 @@ st.set_page_config(
 
 # Estilos limpios sobre fondo claro con acentos institucionales y forzado de inputs legibles
 st.markdown("""
-    st.markdown("""
     <style>
-    /* 🟢 Fondo general claro y tipografía legible */
+    /* Fondo general claro y tipografia legible */
     .stApp {
         background-color: #F8F9FA;
         color: #1F2937;
     }
     
-    /* 🟢 Barra lateral institucional en Verde IMSS y texto blanco */
+    /* Barra lateral institucional en Verde IMSS y texto blanco */
     [data-testid="stSidebar"] {
         background-color: #005A36 !important;
     }
@@ -33,13 +32,13 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* 🟢 Forzar texto oscuro legible en selectores, inputs y áreas de texto */
+    /* Forzar texto oscuro legible en selectores, inputs y areas de texto */
     .stTextInput input, .stTextArea textarea, .stSelectbox select, div[data-baseweb="select"] div {
         color: #1F2937 !important;
         background-color: #FFFFFF !important;
     }
     
-    /* 🟢 Forzar fondo blanco y texto oscuro en los menús desplegables flotantes (popovers / listbox) */
+    /* Forzar fondo blanco y texto oscuro en los menus desplegables flotantes (popovers / listbox) */
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"], div[role="listbox"] {
         background-color: #FFFFFF !important;
     }
@@ -56,7 +55,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* 🟢 Forzar calendario (date_input) claro y legible */
+    /* Forzar calendario (date_input) claro y legible */
     div[data-baseweb="calendar"], div[data-baseweb="datepicker"] {
         background-color: #FFFFFF !important;
         color: #1F2937 !important;
@@ -65,7 +64,7 @@ st.markdown("""
         color: #1F2937 !important;
     }
 
-    /* 🟢 Corrección para etiquetas de código (texto entre backticks) */
+    /* Correccion para etiquetas de codigo (texto entre backticks) */
     code {
         background-color: #E5E7EB !important;
         color: #005A36 !important;
@@ -74,7 +73,7 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* 🟢 Botones de envío de formularios en Verde IMSS con texto blanco destacado */
+    /* Botones de envio de formularios en Verde IMSS con texto blanco destacado */
     .stFormSubmitButton button, button[type="submit"] {
         background-color: #005A36 !important;
         color: #FFFFFF !important;
@@ -86,18 +85,18 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
-    /* 🟢 Textos generales de la app en color oscuro fuerte para buen contraste */
+    /* Textos generales de la app en color oscuro fuerte para buen contraste */
     p, span, label, div, h1, h2, h3, h4, h5, h6 {
         color: #1F2937;
     }
 
-    /* 🟢 Excepción para mantener los títulos y textos dentro de la barra lateral en blanco */
+    /* Excepcion para mantener los titulos y textos dentro de la barra lateral en blanco */
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3, 
     [data-testid="stSidebar"] span, [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
         color: #FFFFFF !important;
     }
 
-    /* Tarjetas de métricas estilizadas claras */
+    /* Tarjetas de metricas estilizadas claras */
     [data-testid="stMetric"] {
         background-color: #FFFFFF;
         border: 1px solid #E5E7EB;
@@ -121,7 +120,7 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* Estilos de impresión limpia */
+    /* Estilos de impresion limpia */
     @media print {
         [data-testid="stSidebar"], button, .stButton, header {
             display: none !important;
