@@ -215,6 +215,20 @@ st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
+    # 🟢 Botón de impresión directa para el reporte del Dashboard
+    import streamlit.components.v1 as components
+    
+    col_btn_print, col_empty = st.columns([1, 4])
+    with col_btn_print:
+        if st.button("🖨️ Imprimir / Guardar PDF"):
+            components.html("""
+                <script>
+                    window.print();
+                </script>
+            """, height=0)
+            
+    st.markdown("---")
+    
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
         filtro_etapa_dash = st.selectbox(
