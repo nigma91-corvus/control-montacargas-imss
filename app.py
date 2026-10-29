@@ -374,14 +374,25 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         # 1. Agrupar datos por OOAD_Estado y Etapa Contractual
         counts_ooad_etapa = df_dash.groupby(["ooad_estado", "etapa_contractual"]).size().reset_index(name="Unidades")
         
-        # 2. Asignación de paleta de colores institucional por Etapa
+        # 2. Paleta de colores dinámica basada estrictamente en las etapas seleccionadas
+        colores_permitidos = etapas_seleccionadas if etapas_seleccionadas else ['Etapa 1 (2022)', 'Etapa 2 (2024)', 'Etapa 3 (2025)', 'Etapa 4']
+        colores_map = {
+            'Etapa 1 (2022)': '#005A36',
+            'Etapa 2 (2024)': '#1E3A8A',
+            'Etapa 3 (2025)': '#D97706',
+            'Etapa 4': '#9CA3AF'
+        }
+        
+        domain_actual = [e for e in colores_permitidos if e in colores_map]
+        range_actual = [colores_map[e] for e in domain_actual]
+
         colores_etapa = alt.Scale(
-            domain=['Etapa 1 (2022)', 'Etapa 2 (2024)', 'Etapa 3 (2025)', 'Etapa 4'],
-            range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF']  # Verde IMSS, Azul, Ámbar, Gris
+            domain=domain_actual,
+            range=range_actual
         )
 
-        # 3. Construcción del gráfico de barras apiladas con autosize limpio
-        chart = alt.Chart(counts_ooad_etapa).mark_bar().encode(
+        # 3. Construcción base del gráfico
+        base_chart = alt.Chart(counts_ooad_etapa).encode(
             x=alt.X('ooad_estado:N', title='OOAD / Estado', sort='-y', 
                     axis=alt.Axis(
                         labelAngle=-45, 
@@ -391,7 +402,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
                         labelFontWeight='bold',
                         labelOverlap=False
                     )),
-            y=alt.Y('Unidades:Q', title='Número de Unidades', 
+            y=alt.Y('Unidades:Q', title='Número de Unidades', stack='zero',
                     axis=alt.Axis(
                         labelColor='#111827', 
                         titleColor='#111827', 
@@ -410,8 +421,24 @@ if menu == "📊 Dashboard & Semáforo de Flota":
                 )
             ),
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
-        ).properties(
-            height=350,
+        )
+
+        # Capa de barras
+        bars = base_chart.mark_bar()
+
+        # 🟢 Capa de texto para mostrar el número exacto dentro de cada bloque de color
+        text = base_chart.mark_text(
+            dy=12,  # Desplazamiento para centrar el número en el segmento
+            color='#FFFFFF',
+            fontWeight='bold',
+            fontSize=10
+        ).encode(
+            text=alt.Text('Unidades:Q', format='d')
+        )
+
+        # Combinar capas de barras y texto
+        chart = (bars + text).properties(
+            height=380,
             autosize={'type': 'fit', 'contains': 'padding'}
         ).configure_view(
             strokeWidth=0, 
