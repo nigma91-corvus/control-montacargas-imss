@@ -378,6 +378,38 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     c4.metric("🟡 Garantía Inconclusa", f"{garantia_count} U")
     c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
 
+    # 🔍 SECCIÓN INTELIGENTE: Desplegable con el detalle exacto de las unidades con incidencia
+    with st.expander("🔍 Ver detalle de unidades con Garantías o Servicios Inconclusos", expanded=False):
+        if not df_dash.empty and (garantia_count > 0 or inconcluso_count > 0):
+            detalles_incidencias = []
+            for _, row in df_dash.iterrows():
+                s_ser = str(row.get(col_ser_dash, "")).strip()
+                ooad_val = row.get("ooad_estado", "N/D")
+                eco_val = row.get("numero_economico", row.get(df_dash.columns[0], "N/D"))
+                
+                if s_ser in series_inconclusas_set:
+                    detalles_incidencias.append({
+                        "OOAD / Estado": ooad_val,
+                        "No. Económico": eco_val,
+                        "Número de Serie": s_ser,
+                        "Incidencia": "🔴 Servicio Inconcluso"
+                    })
+                elif s_ser in series_garantia_set:
+                    detalles_incidencias.append({
+                        "OOAD / Estado": ooad_val,
+                        "No. Económico": eco_val,
+                        "Número de Serie": s_ser,
+                        "Incidencia": "🟡 Garantía Inconclusa"
+                    })
+            
+            if detalles_incidencias:
+                df_inc = pd.DataFrame(detalles_incidencias)
+                st.dataframe(df_inc, use_container_width=True, hide_index=True)
+            else:
+                st.info("ℹ️ No hay incidencias registradas en los equipos de la vista actual.")
+        else:
+            st.success("✨ ¡Excelente noticia! No hay garantías ni servicios inconclusos en las etapas seleccionadas.")
+
     st.markdown("---")
     etiquetas_filtro_str = ", ".join(etapas_seleccionadas) if etapas_seleccionadas else "Ninguna"
     st.subheader(f"📍 Distribución por OOAD / Estado y Etapa Contractual ({etiquetas_filtro_str})")
@@ -435,7 +467,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         )
 
-        # 🟢 Capa de barras con opacidad total y un trazo definido para evitar efecto lavado al imprimir
+        # Capa de barras
         bars = base_chart.mark_bar(
             opacity=1.0, 
             filled=True,
@@ -445,7 +477,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
 
         # Capa de texto para mostrar el número exacto dentro de cada bloque de color
         text = base_chart.mark_text(
-            dy=12,  # Desplazamiento para centrar el número en el segmento
+            dy=12,  
             color='#FFFFFF',
             fontWeight='bold',
             fontSize=10
