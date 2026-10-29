@@ -179,23 +179,19 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     total_u = len(df_dash)
 
     # 🟢 OBTENER EL ÚLTIMO ESTATUS REAL DESDE EL HISTORIAL DE MANTENIMIENTOS
-    # Mapear la serie con su estatus pendiente más reciente
     series_inconclusas_set = set()
     series_garantia_set = set()
 
     if "historial_mantenimientos_local" in st.session_state:
-        # Recorrer el historial para identificar las series con problemas activos
         for reg in st.session_state.historial_mantenimientos_local:
             s_val = str(reg.get("serie", "")).strip()
             est_val = str(reg.get("estatus", "")).lower()
             
-            # Si el último registro relevante sigue inconcluso o no realizado
             if "inconcluso" in est_val or "refacción" in est_val:
                 series_garantia_set.add(s_val)
             elif "no realizado" in est_val:
                 series_inconclusas_set.add(s_val)
 
-    # Contar unidades basándose en el padrón cruzado con incidencias reales
     inconcluso_count = 0
     garantia_count = 0
     op_count = 0
@@ -210,13 +206,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         elif s_ser in series_garantia_set:
             garantia_count += 1
         else:
-            # Si no tiene reporte inconcluso activo, se asume operativo
             op_count += 1
-
-    # Seguridad matemática para evitar porcentajes negativos o absurdos
-    if (op_count + garantia_count + inconcluso_count) != total_u:
-        # Ajuste por si hay diferencia en conteos
-        pass
 
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
 
@@ -228,20 +218,35 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
 
     st.markdown("---")
-    st.subheader(f"📍 Distribución por OOAD / Estado ({filtro_etapa_dash})")
+    st.subheader(f"📍 Distribución por OOAD / Estado y Etapa Contractual ({filtro_etapa_dash})")
     
-    if "ooad_estado" in df_dash.columns and not df_dash.empty:
-        counts_ooad_full = df_dash["ooad_estado"].value_counts().reset_index()
-        counts_ooad_full.columns = ["OOAD_Estado", "Total"]
-        counts_ooad_full = counts_ooad_full[counts_ooad_full["Total"] > 0]
+    if "ooad_estado" in df_dash.columns and "etapa_contractual" in df_dash.columns and not df_dash.empty:
+        # 1. Agrupar datos por OOAD_Estado y Etapa Contractual
+        counts_ooad_etapa = df_dash.groupby(["ooad_estado", "etapa_contractual"]).size().reset_index(name="Unidades")
         
-        chart = alt.Chart(counts_ooad_full).mark_bar(color='#005A36').encode(
-            x=alt.X('OOAD_Estado:N', title='OOAD / Estado', sort='-y', 
+        # 2. Asignación de paleta de colores institucional por Etapa
+        colores_etapa = alt.Scale(
+            domain=['Etapa 1 (2022)', 'Etapa 2 (2024)', 'Etapa 3 (2025)', 'Etapa 4'],
+            range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF'] # Verde IMSS, Azul, Ámbar, Gris
+        )
+
+        # 3. Construcción del gráfico de barras apiladas
+        chart = alt.Chart(counts_ooad_etapa).mark_bar().encode(
+            x=alt.X('ooad_estado:N', title='OOAD / Estado', sort='-y', 
                     axis=alt.Axis(labelAngle=-45, labelColor='#1F2937', labelOverlap=False)),
-            y=alt.Y('Total:Q', title='Número de Unidades', 
+            y=alt.Y('Unidades:Q', title='Número de Unidades', 
                     axis=alt.Axis(labelColor='#1F2937', grid=True, gridColor='#E5E7EB', format='d')),
-            tooltip=['OOAD_Estado', 'Total']
-        ).properties(width=alt.Step(38), height=380).configure_view(strokeWidth=0, fill='white').configure(background='white')
+            color=alt.Color('etapa_contractual:N', scale=colores_etapa, title='Etapa Contractual'),
+            tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
+        ).properties(
+            width=alt.Step(38), 
+            height=400
+        ).configure_view(
+            strokeWidth=0, 
+            fill='white'
+        ).configure(
+            background='white'
+        )
         
         st.altair_chart(chart, use_container_width=True)
 
