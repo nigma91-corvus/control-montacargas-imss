@@ -215,7 +215,7 @@ st.sidebar.caption(f"📦 **Flota Total:** {len(df_padron)} Unidades")
 if menu == "📊 Dashboard & Semáforo de Flota":
     st.subheader("🚥 Semáforo Operativo y Disponibilidad de Flota")
     
-    # 🟢 Botón de impresión directa para el reporte del Dashboard
+    # 🟢 Botón de impresión directa corregido con parent.window.print()
     import streamlit.components.v1 as components
     
     col_btn_print, col_empty = st.columns([1, 4])
@@ -223,7 +223,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         if st.button("🖨️ Imprimir / Guardar PDF"):
             components.html("""
                 <script>
-                    window.print();
+                    parent.window.print();
                 </script>
             """, height=0)
             
@@ -231,17 +231,25 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     
     col_f1, col_f2 = st.columns([2, 4])
     with col_f1:
-        filtro_etapa_dash = st.selectbox(
-            "🎯 Filtrar Dashboard por Etapa:",
-            ["Todas las Etapas", "Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2025)", "Etapa 4"]
+        # 🟢 Selector múltiple para elegir y combinar las etapas a visualizar
+        opciones_etapas = ["Etapa 1 (2022)", "Etapa 2 (2024)", "Etapa 3 (2025)", "Etapa 4"]
+        etapas_seleccionadas = st.multiselect(
+            "🎯 Filtrar Dashboard por Etapa(s):",
+            options=opciones_etapas,
+            default=opciones_etapas  # Por defecto arranca mostrando todas combinadas
         )
     
     df_dash = df_padron.copy()
-    if filtro_etapa_dash != "Todas las Etapas":
-        if filtro_etapa_dash == "Etapa 4":
-            df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.contains("NO_EXISTE", case=False, na=False)]
-        else:
-            df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == filtro_etapa_dash.lower()]
+    if etapas_seleccionadas:
+        mask = pd.Series(False, index=df_dash.index)
+        for etapa in etapas_seleccionadas:
+            if etapa == "Etapa 4":
+                mask |= df_dash["etapa_contractual"].astype(str).str.contains("NO_EXISTE", case=False, na=False)
+            else:
+                mask |= (df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == etapa.lower())
+        df_dash = df_dash[mask]
+    else:
+        df_dash = df_padron.iloc[0:0]  # Si desmarca todas, muestra la vista vacía
 
     total_u = len(df_dash)
 
@@ -285,7 +293,8 @@ if menu == "📊 Dashboard & Semáforo de Flota":
     c5.metric("🔴 Servicios Inconclusos", f"{inconcluso_count} U")
 
     st.markdown("---")
-    st.subheader(f"📍 Distribución por OOAD / Estado y Etapa Contractual ({filtro_etapa_dash})")
+    etiquetas_filtro_str = ", ".join(etapas_seleccionadas) if etapas_seleccionadas else "Ninguna"
+    st.subheader(f"📍 Distribución por OOAD / Estado y Etapa Contractual ({etiquetas_filtro_str})")
     
     if "ooad_estado" in df_dash.columns and "etapa_contractual" in df_dash.columns and not df_dash.empty:
         # 1. Agrupar datos por OOAD_Estado y Etapa Contractual
@@ -294,7 +303,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
         # 2. Asignación de paleta de colores institucional por Etapa
         colores_etapa = alt.Scale(
             domain=['Etapa 1 (2022)', 'Etapa 2 (2024)', 'Etapa 3 (2025)', 'Etapa 4'],
-            range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF'] # Verde IMSS, Azul, Ámbar, Gris
+            range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF']  # Verde IMSS, Azul, Ámbar, Gris
         )
 
         # 3. Construcción del gráfico de barras apiladas con leyenda y ejes de alta visibilidad
@@ -316,7 +325,6 @@ if menu == "📊 Dashboard & Semáforo de Flota":
                         gridColor='#E5E7EB', 
                         format='d'
                     )),
-            # 🟢 Forzar color oscuro en título y etiquetas de la leyenda aquí:
             color=alt.Color(
                 'etapa_contractual:N', 
                 scale=colores_etapa, 
