@@ -120,67 +120,82 @@ st.markdown("""
         border-radius: 10px !important;
     }
 
-    /* Estilos exclusivos de impresion optimizados para una sola hoja ejecutiva */
+    /* 🟢 ESTILOS DE IMPRESIÓN HORIZONTAL - PROTAGONISMO DE GRÁFICA Y DISEÑO LIGERO */
     @media print {
         @page {
-            size: landscape;
-            margin: 0.5cm; /* Margen reducido para aprovechar todo el espacio */
+            size: landscape; /* Forzar hoja horizontal por defecto */
+            margin: 0.8cm;
         }
 
-        /* Ocultar elementos de navegacion e interfaz */
-        [data-testid="stSidebar"], button, .stButton, header, footer, iframe {
+        /* Ocultar barra lateral, botones, subtítulos largos y elementos de interfaz */
+        [data-testid="stSidebar"], button, .stButton, header, footer, iframe, .sub-title {
             display: none !important;
         }
         
-        /* Forzar fondo blanco y eliminar saltos de pagina innecesarios */
+        /* Fondo blanco impoluto en toda la página */
         html, body, .stApp, .main, [data-testid="stAppViewContainer"], .block-container {
             background-color: #FFFFFF !important;
             background: #FFFFFF !important;
             color: #000000 !important;
-            padding: 5px !important;
+            padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
         }
 
-        /* Forzar textos legibles en negro y compactar espacios */
-        p, span, label, div, h1, h2, h3, h4, h5, h6, .main-title, .sub-title {
-            color: #000000 !important;
-            line-height: 1.2 !important;
+        /* Título principal más limpio y compacto */
+        h1 {
+            font-size: 18px !important;
+            color: #005A36 !important;
+            margin-bottom: 2px !important;
+            padding-bottom: 0 !important;
         }
 
-        /* Contenedores de metricas en una sola linea compacta */
+        /* Ocultar selectores y filtros de selección al imprimir para limpiar el encabezado */
+        div[data-baseweb="select"], .stMultiSelect {
+            display: none !important;
+        }
+
+        /* Distribuir las tarjetas de métricas en una sola línea horizontal compacta */
         div[data-testid="column"] {
             width: 19% !important;
             display: inline-block !important;
-            padding: 2px !important;
+            margin-right: 1% !important;
+            vertical-align: top;
         }
 
-        /* Tarjetas de metricas mas compactas para que no ocupen altura de mas */
+        /* Tarjetas de métricas discretas y ligeras */
         [data-testid="stMetric"] {
             background-color: #FFFFFF !important;
-            border: 1px solid #000000 !important;
-            padding: 8px !important;
-            border-radius: 6px !important;
+            border: 1px solid #D1D5DB !important;
+            padding: 6px 8px !important;
+            border-radius: 4px !important;
             box-shadow: none !important;
+            margin-bottom: 10px !important;
         }
         [data-testid="stMetric"] label {
-            font-size: 11px !important;
+            font-size: 10px !important;
+            color: #4B5563 !important;
         }
         [data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            font-size: 16px !important;
+            font-size: 14px !important;
             color: #005A36 !important;
         }
 
-        /* Ajuste estricto para que la grafica quepa completa y sin cortes */
+        /* 📊 HACER QUE LA GRÁFICA SEA LA PROTAGONISTA ABSOLUTA CON MÁXIMO ESPACIO */
+        h3 {
+            font-size: 14px !important;
+            margin-top: 5px !important;
+            margin-bottom: 5px !important;
+        }
+
         .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
             width: 100% !important;
             max-width: 100% !important;
             height: auto !important;
-            max-height: 320px !important;
+            min-height: 420px !important; /* Gran espacio para la gráfica */
             overflow: visible !important;
             page-break-inside: avoid !important;
-            page-break-after: avoid !important;
         }
     }
     </style>
