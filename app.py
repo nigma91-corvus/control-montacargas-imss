@@ -177,13 +177,47 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             df_dash = df_dash[df_dash["etapa_contractual"].astype(str).str.strip().str.lower() == filtro_etapa_dash.lower()]
 
     total_u = len(df_dash)
-    op_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Operativo", case=False, na=False)])
-    garantia_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Garantía|Garantia", case=False, na=False)])
-    inconcluso_count = len(df_dash[df_dash["estatus_operativo"].astype(str).str.contains("Inconcluso|Pendiente|Taller|Fuera", case=False, na=False)])
-    
-    if op_count == 0 and garantia_count == 0 and inconcluso_count == 0:
-        op_count = total_u
+
+    # 🟢 OBTENER EL ÚLTIMO ESTATUS REAL DESDE EL HISTORIAL DE MANTENIMIENTOS
+    # Mapear la serie con su estatus pendiente más reciente
+    series_inconclusas_set = set()
+    series_garantia_set = set()
+
+    if "historial_mantenimientos_local" in st.session_state:
+        # Recorrer el historial para identificar las series con problemas activos
+        for reg in st.session_state.historial_mantenimientos_local:
+            s_val = str(reg.get("serie", "")).strip()
+            est_val = str(reg.get("estatus", "")).lower()
+            
+            # Si el último registro relevante sigue inconcluso o no realizado
+            if "inconcluso" in est_val or "refacción" in est_val:
+                series_garantia_set.add(s_val)
+            elif "no realizado" in est_val:
+                series_inconclusas_set.add(s_val)
+
+    # Contar unidades basándose en el padrón cruzado con incidencias reales
+    inconcluso_count = 0
+    garantia_count = 0
+    op_count = 0
+
+    col_ser_dash = next((c for c in df_dash.columns if "serie" in c.lower()), df_dash.columns[1] if len(df_dash.columns) > 1 else df_dash.columns[0])
+
+    for _, row in df_dash.iterrows():
+        s_ser = str(row.get(col_ser_dash, "")).strip()
         
+        if s_ser in series_inconclusas_set:
+            inconcluso_count += 1
+        elif s_ser in series_garantia_set:
+            garantia_count += 1
+        else:
+            # Si no tiene reporte inconcluso activo, se asume operativo
+            op_count += 1
+
+    # Seguridad matemática para evitar porcentajes negativos o absurdos
+    if (op_count + garantia_count + inconcluso_count) != total_u:
+        # Ajuste por si hay diferencia en conteos
+        pass
+
     disp_porcentaje = (op_count / total_u) * 100 if total_u > 0 else 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -542,7 +576,7 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             else:
                 st.info("ℹ️ No hay datos suficientes para generar el resumen por día.")
 
-    # ==========================================
+   # ==========================================
     # PESTAÑA 3: EXPEDIENTE Y CAPTURA DE SERVICIO EN SITIO
     # ==========================================
     with tab_cmms3:
@@ -626,7 +660,6 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             for idx, row in df_padron.iterrows():
                 inv_v = str(row.get(c_inv_key, "N/D"))
                 ser_v = str(row.get(c_ser_key, "N/D"))
-                # 🟢 LECTURA SEGURA DE LA OOAD DESDE EL PADRÓN
                 ooad_v = str(row.get("ooad_estado", row.get(c_ooad_key, "N/D")))
                 label_eq = f"Sede: {ooad_v} | Inv: {inv_v} | Serie: {ser_v}"
                 opciones_equipos_cmms[label_eq] = row
@@ -641,14 +674,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 contrato_asociado = str(eq_data.get("num_contrato", "N/D"))
 
         if serie_sel:
-            # 🟢 EXTRACCIÓN ROBUSTA DE LA OOAD REAL (BUSCA EN TODAS LAS VARIANTES)
             ooad_real = "N/D"
             if isinstance(eq_data, dict):
                 ooad_real = eq_data.get("ooad", eq_data.get("ooad_estado", eq_data.get(c_ooad_key, "N/D")))
             elif hasattr(eq_data, "get"):
                 ooad_real = str(eq_data.get("ooad_estado", eq_data.get("ooad", eq_data.get(c_ooad_key, "N/D"))))
             
-            # Si aún viniera vacío o N/D, lo rastreamos directamente del padrón general
             if str(ooad_real).strip().upper() in ["N/D", "NONE", "NAN", ""]:
                 match_p = df_padron[df_padron[c_ser_key].astype(str).str.strip() == str(serie_sel).strip()]
                 if not match_p.empty:
@@ -664,11 +695,13 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
             tipo_etiqueta = "Mantenimiento Calendarizado" if "Calendarizado" in tipo_servicio_sel else ("Seguimiento Inconcluso" if "Inconcluso" in tipo_servicio_sel else "Reporte de Fallo")
             st.markdown(f"#### 📝 Registrar Cierre o Continuidad ({tipo_etiqueta})")
             
-            with st.form(f"form_captura_ot_{serie_sel}_v5"):
+            with st.form(f"form_captura_ot_{serie_sel}_v6"):
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
                     fecha_servicio = st.date_input("Fecha de Visita / Cierre de Continuidad", value=fecha_sugerida)
                     nombre_tecnico = st.text_input("Nombre del Técnico / Proveedor Responsable")
+                    # 🟢 CAMPO NUEVO: Captura del Horómetro Actual
+                    horometro_actual = st.number_input("⏱️ Horómetro Actual (Horas)", min_value=0.0, step=1.0, format="%.1f")
                 with col_f2:
                     estatus_pantone = st.selectbox(
                         "Estatus Actualizado",
@@ -690,11 +723,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     "tipo_servicio": tipo_etiqueta,
                     "etapa": etapa_asociada,
                     "contrato": contrato_asociado,
-                    "ooad": str(ooad_real),  # 🟢 AQUÍ YA VIAJA LA OOAD REAL Y LIMPIA
+                    "ooad": str(ooad_real),
                     "serie": serie_sel,
                     "inventario": inv_sel,
                     "fecha": str(fecha_servicio),
                     "tecnico": nombre_tecnico,
+                    "horometro": float(horometro_actual),  # 🟢 Guardando el valor del horómetro
                     "estatus": estatus_pantone,
                     "firmante": nombre_firmante,
                     "observaciones": observaciones_ot
@@ -717,9 +751,9 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     supabase.table("calendarizacion_lotes").delete().eq("serie", str(serie_sel)).execute()
                     
                     if "Concluido" in estatus_pantone:
-                        st.success(f"✅ ¡Servicio CONCLUIDO para la serie {serie_sel}! Unidad liberada exitosamente.")
+                        st.success(f"✅ ¡Servicio CONCLUIDO para la serie {serie_sel} con horómetro en {horometro_actual} hrs! Unidad liberada exitosamente.")
                     else:
-                        st.warning(f"⚠️ Servicio registrado como {estatus_pantone}. La unidad se ha enviado a la Bandeja de Inconclusos (Tab 4) para seguimiento, y el calendario actual ha quedado libre para futuras programaciones.")
+                        st.warning(f"⚠️ Servicio registrado con horómetro en {horometro_actual} hrs y estatus {estatus_pantone}. La unidad se ha enviado a la Bandeja de Inconclusos.")
                         
                 except Exception as err_db:
                     st.error(f"❌ Error al procesar en Supabase: {str(err_db)}")
@@ -736,10 +770,12 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                     cols_hist = st.columns([5, 1])
                     with cols_hist[0]:
                         badge_tipo = serv.get('tipo_servicio', 'Servicio')
-                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | **Estatus:** {serv['estatus']} | **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
+                        h_val = serv.get('horometro', 'N/D')
+                        st.markdown(f"🔹 **[{badge_tipo}] Fecha:** {serv['fecha']} | ⏱️ **Horómetro:** `{h_val} hrs` | **Estatus:** {serv['estatus']}")
+                        st.markdown(f"👨‍🔧 **Técnico:** {serv['tecnico']} | **Firmante:** {serv['firmante']}")
                         st.caption(f"Obs: {serv['observaciones']}")
                     with cols_hist[1]:
-                        if st.button("🗑️ Borrar", key=f"btn_del_v5_{serie_sel}_{i}"):
+                        if st.button("🗑️ Borrar", key=f"btn_del_v6_{serie_sel}_{i}"):
                             st.session_state.historial_mantenimientos_local.remove(serv)
                             st.success("✅ ¡Registro eliminado correctamente!")
                             st.rerun()
