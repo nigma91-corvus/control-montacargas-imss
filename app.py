@@ -761,9 +761,15 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                 with st.container():
                     col_inc1, col_inc2 = st.columns([4, 1])
                     with col_inc1:
-                        # Se agrega la OOAD / Sede directamente en el encabezado visible
-                        sede_inc = inc.get('ooad', 'Sede no especificada')
-                        st.markdown(f"📍 **Sede / OOAD:** {sede_inc}")
+                        # 🟢 Rescate automático: Si el historial dice N/D, lo busca directo en el padrón por número de serie
+                        sede_inc = inc.get('ooad', 'N/D')
+                        if str(sede_inc).strip().upper() in ["N/D", "NONE", "NAN", ""]:
+                            match_padron = df_padron[df_padron[c_ser_key].astype(str).str.strip() == str(inc['serie']).strip()]
+                            if not match_padron.empty:
+                                col_ooad_p = "ooad_estado" if "ooad_estado" in df_padron.columns else c_ooad_key
+                                sede_inc = match_padron.iloc[0].get(col_ooad_p, "Sede no especificada")
+
+                        st.markdown(f"📍 **Sede / OOAD:** `{sede_inc}`")
                         st.markdown(f"🚨 **Serie:** {inc['serie']} | **Inventario:** {inc['inventario']} | **Fecha Última:** {inc['fecha']}")
                         st.markdown(f"⚠️ **Estatus:** {inc['estatus']}")
                         st.caption(f"**Motivo / Observación:** {inc['observaciones']}")
