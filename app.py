@@ -337,7 +337,7 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             range=['#005A36', '#1E3A8A', '#D97706', '#9CA3AF']  # Verde IMSS, Azul, Ámbar, Gris
         )
 
-        # 3. Construcción del gráfico de barras apiladas con autosize limpio y responsivo
+        # 3. Construcción del gráfico de barras apiladas con autosize limpio
         chart = alt.Chart(counts_ooad_etapa).mark_bar().encode(
             x=alt.X('ooad_estado:N', title='OOAD / Estado', sort='-y', 
                     axis=alt.Axis(
@@ -368,15 +368,13 @@ if menu == "📊 Dashboard & Semáforo de Flota":
             ),
             tooltip=['ooad_estado', 'etapa_contractual', 'Unidades']
         ).properties(
-            height=350
+            height=350,
+            autosize={'type': 'fit', 'contains': 'padding'}
         ).configure_view(
             strokeWidth=0, 
             fill='white'
         ).configure(
             background='white'
-        ).autosize(
-            type='fit',
-            contains='padding'
         )
         
         st.altair_chart(chart, use_container_width=True)
