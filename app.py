@@ -183,13 +183,25 @@ st.markdown("""
             margin: 5px 0 !important;
         }
 
-        .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"] {
+        /* Gráfica protagonista ajustada para la hoja horizontal */
+        h3 {
+            font-size: 13px !important;
+            margin: 5px 0 !important;
+        }
+
+        .element-container, .stVegaLiteChart, canvas, svg, div[data-testid="stVegaLiteChart"], rect, path {
             width: 100% !important;
             max-width: 100% !important;
             height: auto !important;
             max-height: 380px !important;
             page-break-inside: avoid !important;
             page-break-after: avoid !important;
+            /* 🟢 Propiedades clave para evitar el efecto marca de agua y forzar colores sólidos */
+            opacity: 1 !important;
+            fill-opacity: 1 !important;
+            stroke-opacity: 1 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
     }
     </style>
