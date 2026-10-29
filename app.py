@@ -211,12 +211,26 @@ if df_padron.empty:
     st.warning("La base de datos se encuentra vacía o hay un problema de conexión con Supabase.")
     st.stop()
 
-# Inicializar estados en session_state
+# ==========================================
+# INICIALIZACIÓN GLOBAL Y CARGA DESDE SUPABASE
+# ==========================================
 if "historial_mantenimientos_local" not in st.session_state:
     st.session_state.historial_mantenimientos_local = []
+    try:
+        res_hist = supabase.table("historial_mantenimientos").select("*").order("created_at", desc=True).execute()
+        if res_hist.data:
+            st.session_state.historial_mantenimientos_local = res_hist.data
+    except Exception as e:
+        pass
 
 if "equipos_calendarizados" not in st.session_state:
     st.session_state.equipos_calendarizados = []
+    try:
+        res_cal = supabase.table("calendarizacion_lotes").select("*").execute()
+        if res_cal.data:
+            st.session_state.equipos_calendarizados = res_cal.data
+    except Exception as e:
+        pass
 
 # ==========================================
 # 3. NAVEGACIÓN MODULAR (5 MÓDULOS)
