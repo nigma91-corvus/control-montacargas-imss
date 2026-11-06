@@ -1046,7 +1046,20 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
         st.markdown("💡 Aquí se listan todas las unidades que quedaron pendientes. Puede dar clic en **'🔄 Atender Continuidad'** para saltar directamente a la Pestaña 3 y registrar la nueva visita.")
         
-        inconclusos_locales = [s for s in st.session_state.historial_mantenimientos_local if "Inconcluso" in s.get("estatus", "") or "No Realizado" in s.get("estatus", "")]
+        # 🟢 Diccionario inteligente para conservar únicamente el registro más reciente por cada número de serie
+        historial_por_serie = {}
+        for reg in st.session_state.historial_mantenimientos_local:
+            s_val = str(reg.get("serie", "")).strip()
+            if s_val:
+                # Ordenamos o sobrescribimos para quedarnos con el último movimiento registrado (asumiendo orden cronológico)
+                historial_por_serie[s_val] = reg
+
+        # Filtramos solo aquellos cuya ÚLTIMA visita esté inconclusa o no realizada
+        inconclusos_locales = []
+        for s_val, reg in historial_por_serie.items():
+            est_val = str(reg.get("estatus", ""))
+            if "Inconcluso" in est_val or "No Realizado" in est_val:
+                inconclusos_locales.append(reg)
         
         if inconclusos_locales:
             for i, inc in enumerate(inconclusos_locales):
@@ -1072,4 +1085,4 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
                             st.rerun()
                     st.markdown("---")
         else:
-            st.success("🟢 No hay unidades con servicios inconclusos o no realizados registrados en la sesión actual.")
+            st.success("🟢 No hay unidades con servicios inconclusos o no realizados pendientes en la sesión actual.")
