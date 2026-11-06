@@ -1046,12 +1046,17 @@ elif menu == "🛠️ Gestión de Mantenimiento (CMMS)":
         st.markdown("### 🔴 Bandeja de Seguimiento a Servicios Inconclusos y Bloqueados")
         st.markdown("💡 Aquí se listan todas las unidades que quedaron pendientes. Puede dar clic en **'🔄 Atender Continuidad'** para saltar directamente a la Pestaña 3 y registrar la nueva visita.")
         
-        # 🟢 Diccionario inteligente para conservar únicamente el registro más reciente por cada número de serie
+       # 🟢 Diccionario inteligente ordenado: Aseguramos ordenar por fecha para que el más reciente domine siempre
+        historial_ordenado = sorted(
+            st.session_state.historial_mantenimientos_local, 
+            key=lambda x: str(x.get("fecha", "")), 
+            reverse=False # De más antiguo a más reciente (el último sobreescribe al viejo)
+        )
+
         historial_por_serie = {}
-        for reg in st.session_state.historial_mantenimientos_local:
+        for reg in historial_ordenado:
             s_val = str(reg.get("serie", "")).strip()
             if s_val:
-                # Ordenamos o sobrescribimos para quedarnos con el último movimiento registrado (asumiendo orden cronológico)
                 historial_por_serie[s_val] = reg
 
         # Filtramos solo aquellos cuya ÚLTIMA visita esté inconclusa o no realizada
